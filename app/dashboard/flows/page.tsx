@@ -1,15 +1,8 @@
-useEffect(() => {
-  async function init() {
-    const result = await checkUserAccess();
-
-    if (!result.ok) {
-      router.push(result.redirect);
-      return;
-    }
-
-    setUser(result.user);
-    loadFlows();
-  }
-
-  init();
-}, []);
+export default function FlowsPage() {
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>Flows</h1>
+      <p>Gerencie seus fluxos aqui.</p>
+    </div>
+  );
+}
