@@ -1,6 +1,6 @@
 'use client';
 
-import { AppSidebar } from '@/components/AppSidebar';
+import AppSidebar from "../../components/AppSidebar";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
