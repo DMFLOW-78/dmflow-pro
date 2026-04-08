@@ -12,8 +12,8 @@ export default function DashboardPage() {
       const result = await checkUserAccess();
 
       if (!result.ok) {
-        router.push(result.redirect);
-      }
+  router.push(result.redirect || "/blocked");
+}
     }
 
     init();
