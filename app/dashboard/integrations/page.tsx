@@ -1,4 +1,4 @@
-import AppSidebar from "@/app/components/AppSidebar";
+import AppSidebar from "../../components/AppSidebar";
 
 export default function IntegrationsPage() {
   return (
