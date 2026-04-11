@@ -1,6 +1,6 @@
 'use client';
 
-import AppSidebar from "../../components/AppSidebar";
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
@@ -17,8 +17,7 @@ export default function LeadsPage() {
 
   return (
     <div className="flex">
-      <AppSidebar />
-      <main className="flex-1 p-8 space-y-6">
+        <main className="flex-1 p-8 space-y-6">
         <h1 className="text-3xl font-bold">Leads</h1>
         <div className="rounded-3xl bg-white p-6 shadow space-y-3">
           {leads.map((lead) => (
