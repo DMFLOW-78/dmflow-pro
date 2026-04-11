@@ -1,60 +1,133 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { createSupabaseClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const supabase = createSupabaseClient();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setErro("");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    setLoading(false);
-
-    if (!error) {
-      router.push('/dashboard');
-    } else {
-      alert(error.message);
+    if (error) {
+      setErro(error.message);
+      setLoading(false);
+      return;
     }
+
+    router.push("/dashboard");
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-      <form
-        onSubmit={handleLogin}
-        className="w-full max-w-md rounded-3xl bg-white p-8 shadow space-y-4"
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#0b0b12",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "24px",
+        color: "#fff",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          background: "#151522",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "16px",
+          padding: "28px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        }}
       >
-        <h1 className="text-3xl font-bold">Entrar</h1>
+        <div style={{ textAlign: "center", marginBottom: "24px" }}>
+          <Image
+            src="/logo-67flow.png"
+            alt="67Flow"
+            width={90}
+            height={90}
+            style={{ objectFit: "contain", margin: "0 auto" }}
+          />
+          <h1 style={{ marginTop: "12px", fontSize: "28px" }}>Entrar</h1>
+          <p style={{ opacity: 0.75, marginTop: "8px" }}>
+            Acesse sua conta no 67Flow
+          </p>
+        </div>
 
-        <input
-          className="w-full rounded-2xl border p-3"
-          placeholder="E-mail"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <form onSubmit={handleLogin}>
+          <input
+            type="email"
+            placeholder="Seu e-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={inputStyle}
+          />
 
-        <input
-          type="password"
-          className="w-full rounded-2xl border p-3"
-          placeholder="Senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <input
+            type="password"
+            placeholder="Sua senha"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={inputStyle}
+          />
 
-        <button className="w-full rounded-2xl bg-black text-white p-3">
-          {loading ? 'Entrando...' : 'Entrar'}
-        </button>
-      </form>
-    </main>
+          {erro ? (
+            <p style={{ color: "#ff6b6b", marginBottom: "12px" }}>{erro}</p>
+          ) : null}
+
+          <button type="submit" disabled={loading} style={buttonStyle}>
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
+
+        <p style={{ textAlign: "center", marginTop: "18px", opacity: 0.85 }}>
+          Ainda não tem conta?{" "}
+          <Link href="/register" style={{ color: "#ff4fd8" }}>
+            Criar conta
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  marginBottom: "12px",
+  borderRadius: "10px",
+  border: "1px solid rgba(255,255,255,0.10)",
+  background: "#0f0f18",
+  color: "#fff",
+  outline: "none",
+};
+
+const buttonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px",
+  border: "none",
+  borderRadius: "10px",
+  background: "linear-gradient(90deg, #7b2ff7, #f107a3)",
+  color: "#fff",
+  fontWeight: 700,
+  cursor: "pointer",
+};

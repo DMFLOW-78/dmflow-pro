@@ -1,19 +1,24 @@
-import { supabase } from './supabase';
+import { createSupabaseClient } from '@/lib/supabase/client';
 
 export async function checkUserAccess() {
-  const { data } = await supabase.auth.getUser();
+  const supabase = createSupabaseClient();
 
-  if (!data.user) {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
     return { ok: false, redirect: '/login' };
   }
 
-  const { data: workspace } = await supabase
+  const { data: workspace, error: workspaceError } = await supabase
     .from('workspaces')
     .select('*')
-    .eq('user_id', data.user.id)
+    .eq('user_id', user.id)
     .single();
 
-  if (!workspace) {
+  if (workspaceError || !workspace) {
     return { ok: false, redirect: '/login' };
   }
 
@@ -25,5 +30,5 @@ export async function checkUserAccess() {
     return { ok: false, redirect: '/blocked' };
   }
 
-  return { ok: true, user: data.user, workspace };
+  return { ok: true, user, workspace };
 }
