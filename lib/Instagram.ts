@@ -1,12 +1,10 @@
-export async function sendInstagramTextMessage(recipientId: string, text: string) {
-  const token = process.env.META_PAGE_ACCESS_TOKEN;
-
-  if (!token) {
-    throw new Error("META_PAGE_ACCESS_TOKEN não configurado");
-  }
-
+export async function sendInstagramTextMessage(
+  accessToken: string,
+  recipientId: string,
+  text: string
+) {
   const response = await fetch(
-    `https://graph.facebook.com/v25.0/me/messages?access_token=${token}`,
+    `https://graph.facebook.com/v19.0/me/messages?access_token=${accessToken}`,
     {
       method: "POST",
       headers: {
@@ -22,7 +20,7 @@ export async function sendInstagramTextMessage(recipientId: string, text: string
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("Erro ao enviar mensagem:", data);
+    console.error("Erro ao enviar mensagem Instagram:", data);
     throw new Error(data?.error?.message || "Erro ao enviar mensagem");
   }
 
