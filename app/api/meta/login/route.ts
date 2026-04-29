@@ -6,6 +6,7 @@ export async function GET() {
 
   const scopes = [
     "pages_show_list",
+    "pages_read_engagement",
     "pages_manage_metadata",
     "pages_messaging"
   ].join(",");
@@ -15,7 +16,8 @@ export async function GET() {
     `?client_id=${appId}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&scope=${encodeURIComponent(scopes)}` +
-    `&response_type=code`;
+    `&response_type=code` +
+    `&auth_type=rerequest`;
 
   return NextResponse.redirect(url);
 }
