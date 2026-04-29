@@ -36,9 +36,11 @@ export default function IntegrationsPage() {
             >
               INTEGRAÇÕES
             </p>
+
             <h1 style={{ margin: "8px 0 0", fontSize: "36px", lineHeight: 1.1 }}>
               Instagram e Facebook
             </h1>
+
             <p
               style={{
                 marginTop: "10px",
@@ -68,9 +70,10 @@ export default function IntegrationsPage() {
             icon="📸"
             title="Instagram"
             status="Desconectado"
-            description="Conecte seu Instagram profissional para receber DMs, comentários e iniciar automações."
+            description="Conecte seu Instagram profissional para receber DMs, responder automaticamente e ativar fluxos."
             primaryAction="Conectar Instagram"
             secondaryAction="Ver detalhes"
+            primaryHref="/api/meta/login"
           />
 
           <IntegrationCard
@@ -155,11 +158,13 @@ export default function IntegrationsPage() {
                   description="Responder ao receber uma DM no Instagram."
                   active={false}
                 />
+
                 <MiniAutomation
                   title="Encaminhar lead quente"
                   description="Direcionar para atendimento humano."
                   active={false}
                 />
+
                 <MiniAutomation
                   title="Mensagem fora do horário"
                   description="Avisar horários de atendimento."
@@ -170,6 +175,7 @@ export default function IntegrationsPage() {
 
             <div style={panelStyle}>
               <h2 style={{ marginTop: 0, fontSize: "22px" }}>Próximos passos</h2>
+
               <ul
                 style={{
                   paddingLeft: "18px",
@@ -198,6 +204,7 @@ function IntegrationCard({
   description,
   primaryAction,
   secondaryAction,
+  primaryHref,
 }: {
   icon: string;
   title: string;
@@ -205,6 +212,7 @@ function IntegrationCard({
   description: string;
   primaryAction: string;
   secondaryAction: string;
+  primaryHref?: string;
 }) {
   return (
     <div
@@ -234,27 +242,16 @@ function IntegrationCard({
               alignItems: "center",
               justifyContent: "center",
               fontSize: "24px",
-              background: "linear-gradient(135deg, rgba(123,47,247,0.25), rgba(241,7,163,0.18))",
+              background:
+                "linear-gradient(135deg, rgba(123,47,247,0.25), rgba(241,7,163,0.18))",
             }}
           >
             {icon}
           </div>
+
           <div>
             <h3 style={{ margin: 0, fontSize: "24px" }}>{title}</h3>
-            <span
-              style={{
-                display: "inline-block",
-                marginTop: "6px",
-                padding: "5px 10px",
-                borderRadius: "999px",
-                fontSize: "13px",
-                background: "rgba(255, 170, 0, 0.14)",
-                color: "#ffcc66",
-                border: "1px solid rgba(255, 170, 0, 0.18)",
-              }}
-            >
-              {status}
-            </span>
+            <span style={tagPending}>{status}</span>
           </div>
         </div>
       </div>
@@ -270,7 +267,14 @@ function IntegrationCard({
       </p>
 
       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        <button style={primaryActionButton}>{primaryAction}</button>
+        {primaryHref ? (
+          <a href={primaryHref} style={primaryActionLink}>
+            {primaryAction}
+          </a>
+        ) : (
+          <button style={primaryActionButton}>{primaryAction}</button>
+        )}
+
         <button style={secondaryActionButton}>{secondaryAction}</button>
       </div>
     </div>
@@ -369,6 +373,20 @@ const primaryActionButton: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const primaryActionLink: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textDecoration: "none",
+  border: "none",
+  padding: "12px 16px",
+  borderRadius: "12px",
+  background: "linear-gradient(90deg, #7b2ff7, #f107a3)",
+  color: "#fff",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
 const secondaryActionButton: React.CSSProperties = {
   border: "1px solid rgba(255,255,255,0.10)",
   padding: "12px 16px",
@@ -390,6 +408,8 @@ const secondaryButton: React.CSSProperties = {
 };
 
 const tagPending: React.CSSProperties = {
+  display: "inline-block",
+  marginTop: "6px",
   padding: "6px 10px",
   borderRadius: "999px",
   fontSize: "12px",
