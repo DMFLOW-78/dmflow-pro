@@ -1,25 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
+import { NextRequest } from "next/server";
 
-function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export async function GET(req: NextRequest) {
+  const mode = req.nextUrl.searchParams.get("hub.mode");
+  const token = req.nextUrl.searchParams.get("hub.verify_token");
+  const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
-  if (!url || !url.startsWith("http")) {
-    throw new Error("SUPABASE_URL inválida");
+  if (mode === "subscribe" && token === process.env.META_VERIFY_TOKEN) {
+    return new Response(challenge, { status: 200 });
   }
 
-  if (!key) {
-    throw new Error("SUPABASE key ausente");
-  }
-
-  return createClient(url, key);
+  return new Response("Erro de verificação", { status: 403 });
 }
 
-export async function POST(request: Request) {
-  const supabase = getSupabaseAdmin();
+export async function POST(req: NextRequest) {
+  const body = await req.json();
 
-  // seu código aqui
+  console.log("Webhook recebido:", JSON.stringify(body, null, 2));
 
-  return new Response("OK", { status: 200 });
+  return new Response("EVENT_RECEIVED", { status: 200 });
 }
