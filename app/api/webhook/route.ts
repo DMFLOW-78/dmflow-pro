@@ -24,16 +24,16 @@ export async function POST(req: NextRequest) {
   console.log(JSON.stringify(body, null, 2));
 
   if (body.object === "instagram") {
-    const entry = body.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value = changes?.value;
-    const messages = value?.messages;
+    for (const entry of body.entry ?? []) {
+      for (const change of entry.changes ?? []) {
+        const value = change.value;
 
-    if (messages) {
-      for (const msg of messages) {
-        console.log("📩 NOVA MENSAGEM:");
-        console.log("De:", msg.from);
-        console.log("Texto:", msg.text?.body);
+        if (change.field === "messages") {
+          console.log("📩 NOVA MENSAGEM:");
+          console.log("De:", value?.from);
+          console.log("Texto:", value?.text);
+          console.log("Mensagem completa:", JSON.stringify(value, null, 2));
+        }
       }
     }
   }
