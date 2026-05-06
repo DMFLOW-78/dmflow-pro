@@ -10,7 +10,10 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
 
   if (!code) {
-    return NextResponse.json({ error: "Código Meta não recebido" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Código Meta não recebido" },
+      { status: 400 }
+    );
   }
 
   const appId = process.env.META_APP_ID!;
@@ -36,22 +39,46 @@ export async function GET(req: NextRequest) {
   const longTokenData = await longTokenRes.json();
   const userToken = longTokenData.access_token;
 
-  const pagesRes = await fetch(
-    `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userToken}`
-  );
+  let allPages: any[] = [];
+  let nextUrl: string | null = `https://graph.facebook.com/v20.0/me/accounts?limit=100&fields=id,name,access_token,instagram_business_account&access_token=${userToken}`;
 
-  const pagesData = await pagesRes.json();
+  while (nextUrl) {
+    const pagesRes = await fetch(nextUrl);
+    const pagesData = await pagesRes.json();
 
-  const page = pagesData.data?.find((p: any) => p.instagram_business_account);
+    if (pagesData.data) {
+      allPages = [...allPages, ...pagesData.data];
+    }
+
+    nextUrl = pagesData.paging?.next ?? null;
+  }
+
+  const page =
+    allPages.find((p: any) => p.name === "67Flow") ||
+    allPages.find((p: any) => p.instagram_business_account);
 
   if (!page) {
     return NextResponse.json(
-      { error: "Nenhuma página com Instagram conectado foi encontrada.", pagesData },
+      {
+        error: "Nenhuma página com Instagram conectado foi encontrada.",
+        allPages,
+      },
       { status: 400 }
     );
   }
 
-  const instagramId = page.instagram_business_account.id;
+  const instagramId = page.instagram_business_account?.id;
+
+  if (!instagramId) {
+    return NextResponse.json(
+      {
+        error: "Página encontrada, mas sem Instagram conectado.",
+        page,
+        allPages,
+      },
+      { status: 400 }
+    );
+  }
 
   const igRes = await fetch(
     `https://graph.facebook.com/v20.0/${instagramId}?fields=username&access_token=${page.access_token}`
@@ -59,13 +86,32 @@ export async function GET(req: NextRequest) {
 
   const igData = await igRes.json();
 
-  await supabase.from("instagram_accounts").insert({
-    page_id: page.id,
-    page_name: page.name,
-    instagram_id: instagramId,
-    instagram_username: igData.username,
-    page_access_token: page.access_token
-  });
+  const { error: supabaseError } = await supabase
+    .from("instagram_accounts")
+    .upsert(
+      {
+        page_id: page.id,
+        page_name: page.name,
+        instagram_id: instagramId,
+        instagram_username: igData.username,
+        page_access_token: page.access_token,
+      },
+      {
+        onConflict: "page_id",
+      }
+    );
 
-  return NextResponse.redirect("https://dmflow-pro.vercel.app/dashboard/integrations?connected=instagram");
+  if (supabaseError) {
+    return NextResponse.json(
+      {
+        error: "Erro ao salvar no Supabase.",
+        details: supabaseError.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.redirect(
+    "https://dmflow-pro.vercel.app/dashboard/integrations?connected=instagram"
+  );
 }
