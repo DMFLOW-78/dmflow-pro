@@ -43,15 +43,17 @@ export async function GET(req: NextRequest) {
   let nextUrl: string | null = `https://graph.facebook.com/v20.0/me/accounts?limit=100&fields=id,name,access_token,instagram_business_account&access_token=${userToken}`;
 
   while (nextUrl) {
-    const pagesRes = await fetch(nextUrl);
-    const pagesData = await pagesRes.json();
+  const currentUrl: string = nextUrl;
 
-    if (pagesData.data) {
-      allPages = [...allPages, ...pagesData.data];
-    }
+  const pagesRes: Response = await fetch(currentUrl);
+  const pagesData: any = await pagesRes.json();
 
-    nextUrl = pagesData.paging?.next ?? null;
+  if (pagesData.data) {
+    allPages = [...allPages, ...pagesData.data];
   }
+
+  nextUrl = pagesData.paging?.next ?? null;
+}
 
   const page =
     allPages.find((p: any) => p.name === "67Flow") ||
