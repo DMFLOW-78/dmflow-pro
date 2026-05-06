@@ -6,14 +6,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const TARGET_PAGE_ID = "1067539799780649";
+
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
 
   if (!code) {
-    return NextResponse.json(
-      { error: "Código Meta não recebido" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Código Meta não recebido" }, { status: 400 });
   }
 
   const appId = process.env.META_APP_ID!;
@@ -39,31 +38,17 @@ export async function GET(req: NextRequest) {
   const longTokenData = await longTokenRes.json();
   const userToken = longTokenData.access_token;
 
-  let allPages: any[] = [];
-  let nextUrl: string | null = `https://graph.facebook.com/v20.0/me/accounts?limit=100&fields=id,name,access_token,instagram_business_account&access_token=${userToken}`;
+  const pageRes = await fetch(
+    `https://graph.facebook.com/v20.0/${TARGET_PAGE_ID}?fields=id,name,access_token,instagram_business_account&access_token=${userToken}`
+  );
 
-  while (nextUrl) {
-  const currentUrl: string = nextUrl;
+  const page = await pageRes.json();
 
-  const pagesRes: Response = await fetch(currentUrl);
-  const pagesData: any = await pagesRes.json();
-
-  if (pagesData.data) {
-    allPages = [...allPages, ...pagesData.data];
-  }
-
-  nextUrl = pagesData.paging?.next ?? null;
-}
-
-  const page =
-    allPages.find((p: any) => p.name === "67Flow") ||
-    allPages.find((p: any) => p.instagram_business_account);
-
-  if (!page) {
+  if (page.error) {
     return NextResponse.json(
       {
-        error: "Nenhuma página com Instagram conectado foi encontrada.",
-        allPages,
+        error: "Erro ao buscar a Página 67Flow direto pelo ID.",
+        page,
       },
       { status: 400 }
     );
@@ -74,9 +59,8 @@ export async function GET(req: NextRequest) {
   if (!instagramId) {
     return NextResponse.json(
       {
-        error: "Página encontrada, mas sem Instagram conectado.",
+        error: "Página 67Flow encontrada, mas sem Instagram conectado no retorno da Meta.",
         page,
-        allPages,
       },
       { status: 400 }
     );
@@ -98,9 +82,7 @@ export async function GET(req: NextRequest) {
         instagram_username: igData.username,
         page_access_token: page.access_token,
       },
-      {
-        onConflict: "page_id",
-      }
+      { onConflict: "page_id" }
     );
 
   if (supabaseError) {
