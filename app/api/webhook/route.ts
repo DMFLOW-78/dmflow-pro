@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { supabase } from "@/lib/supabase/server"
 
 const VERIFY_TOKEN = "dmflow_token";
 
