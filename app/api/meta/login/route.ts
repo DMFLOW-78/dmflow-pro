@@ -19,12 +19,13 @@ export async function GET() {
   }
 
   const scopes = [
-    "pages_show_list",
-    "pages_manage_metadata",
-    "pages_read_engagement",
-    "instagram_basic",
-    "instagram_manage_messages",
-  ].join(",")
+  "pages_show_list",
+  "pages_manage_metadata",
+  "pages_read_engagement",
+  "pages_manage_posts",
+  "instagram_basic",
+  "instagram_manage_messages",
+].join(",")
 
   const url = new URL("https://www.facebook.com/v20.0/dialog/oauth")
 
