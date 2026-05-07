@@ -5,10 +5,13 @@ export async function GET() {
   const redirectUri = process.env.META_REDIRECT_URI!;
 
   const scopes = [
-    "pages_show_list",
-    "pages_manage_metadata",
-    "pages_messaging"
-  ].join(",");
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_metadata",
+  "instagram_basic",
+  "instagram_manage_messages",
+  "instagram_manage_comments",
+].join(",");
 
   const url =
     `https://www.facebook.com/v20.0/dialog/oauth` +
