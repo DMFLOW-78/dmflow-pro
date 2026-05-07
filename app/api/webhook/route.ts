@@ -3,6 +3,14 @@ import { supabase } from "@/lib/supabase/server"
 
 const VERIFY_TOKEN = "dmflow_token"
 
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+}
+
 async function sendInstagramMessage(recipientId: string, text: string) {
   const token = process.env.IG_ACCESS_TOKEN
 
@@ -24,7 +32,9 @@ async function sendInstagramMessage(recipientId: string, text: string) {
   })
 
   const data = await res.json()
-  console.log("📤 RESPOSTA INSTAGRAM:", JSON.stringify(data, null, 2))
+
+  console.log("📤 RESPOSTA INSTAGRAM:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
 export async function GET(req: NextRequest) {
@@ -55,15 +65,15 @@ export async function POST(req: NextRequest) {
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
-      const text = event.message?.text
+      const messageText = event.message?.text
 
-      if (!senderId || !recipientId || !text) {
+      if (!senderId || !recipientId || !messageText) {
         continue
       }
 
-      const normalizedText = text.toLowerCase().trim()
+      const normalizedMessage = normalizeText(messageText)
 
-      console.log("📩 MENSAGEM RECEBIDA:", normalizedText)
+      console.log("📩 MENSAGEM RECEBIDA:", normalizedMessage)
       console.log("👤 SENDER:", senderId)
       console.log("🏢 RECIPIENT:", recipientId)
 
@@ -83,19 +93,26 @@ export async function POST(req: NextRequest) {
       console.log(JSON.stringify(rules, null, 2))
 
       for (const rule of rules ?? []) {
-        const trigger = String(rule.trigger_text ?? "").toLowerCase().trim()
+        const rawTrigger = String(rule.trigger_text ?? "")
         const response = String(rule.response_text ?? "").trim()
 
-        if (!trigger || !response) {
+        if (!rawTrigger || !response) {
           continue
         }
 
-        if (normalizedText.includes(trigger)) {
-          console.log("⚡ MATCH ENCONTRADO:", trigger)
+        const triggers = rawTrigger
+          .split(",")
+          .map((item) => normalizeText(item))
+          .filter(Boolean)
 
-          await sendInstagramMessage(senderId, response)
+        for (const trigger of triggers) {
+          if (normalizedMessage.includes(trigger)) {
+            console.log("⚡ MATCH ENCONTRADO:", trigger)
 
-          return new Response("EVENT_RECEIVED", { status: 200 })
+            await sendInstagramMessage(senderId, response)
+
+            return new Response("EVENT_RECEIVED", { status: 200 })
+          }
         }
       }
     }
