@@ -12,11 +12,29 @@ function normalizeText(value: string) {
     .trim()
 }
 
-async function sendInstagramDM(recipientId: string, text: string) {
-  const token = process.env.IG_ACCESS_TOKEN
+async function getPageAccessToken(accountId: string) {
+  const { data, error } = await supabase
+    .from("instagram_accounts")
+    .select("page_access_token")
+    .or(`page_id.eq.${accountId},instagram_id.eq.${accountId}`)
+    .not("page_access_token", "is", null)
+    .neq("page_access_token", "COLE_AQUI_O_VALOR_DO_IG_ACCESS_TOKEN")
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("❌ ERRO AO BUSCAR TOKEN:", error)
+    return null
+  }
+
+  return data?.page_access_token ?? null
+}
+
+async function sendInstagramDM(accountId: string, recipientId: string, text: string) {
+  const token = await getPageAccessToken(accountId)
 
   if (!token) {
-    console.error("IG_ACCESS_TOKEN não configurado")
+    console.error("❌ Token da conta não encontrado para DM:", accountId)
     return
   }
 
@@ -36,11 +54,11 @@ async function sendInstagramDM(recipientId: string, text: string) {
   console.log("📤 RESPOSTA DM:", JSON.stringify(data, null, 2))
 }
 
-async function replyToInstagramComment(commentId: string, text: string) {
-  const token = process.env.IG_ACCESS_TOKEN
+async function replyToInstagramComment(accountId: string, commentId: string, text: string) {
+  const token = await getPageAccessToken(accountId)
 
   if (!token) {
-    console.error("IG_ACCESS_TOKEN não configurado")
+    console.error("❌ Token da conta não encontrado para comentário:", accountId)
     return
   }
 
@@ -131,7 +149,6 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
-    // DMs
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
@@ -146,12 +163,11 @@ export async function POST(req: NextRequest) {
       const rule = await findMatchingRule(recipientId, messageText)
 
       if (rule) {
-        await sendInstagramDM(senderId, String(rule.response_text))
+        await sendInstagramDM(recipientId, senderId, String(rule.response_text))
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
     }
 
-    // Comentários
     for (const change of entry.changes ?? []) {
       if (change.field !== "comments") continue
 
@@ -172,7 +188,7 @@ export async function POST(req: NextRequest) {
       const rule = await findMatchingRule(accountId, commentText)
 
       if (rule) {
-        await replyToInstagramComment(commentId, String(rule.response_text))
+        await replyToInstagramComment(accountId, commentId, String(rule.response_text))
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
     }
