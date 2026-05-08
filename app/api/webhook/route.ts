@@ -12,7 +12,7 @@ function normalizeText(value: string) {
     .trim()
 }
 
-async function sendInstagramMessage(recipientId: string, text: string) {
+async function sendInstagramDM(recipientId: string, text: string) {
   const token = process.env.IG_ACCESS_TOKEN
 
   if (!token) {
@@ -80,8 +80,8 @@ async function findMatchingRule(accountId: string, text: string) {
   console.log("📦 REGRAS ENCONTRADAS:", rules?.length ?? 0)
 
   for (const rule of rules ?? []) {
-    const rawTrigger = String(rule.trigger_text ?? "")
     const response = String(rule.response_text ?? "").trim()
+    const rawTrigger = String(rule.trigger_text ?? "")
 
     if (!rawTrigger || !response) continue
 
@@ -89,6 +89,8 @@ async function findMatchingRule(accountId: string, text: string) {
       .split(",")
       .map((item) => normalizeText(item))
       .filter(Boolean)
+
+    console.log("🔎 TESTANDO REGRA:", triggers)
 
     for (const trigger of triggers) {
       if (normalizedMessage.includes(trigger)) {
@@ -98,6 +100,7 @@ async function findMatchingRule(accountId: string, text: string) {
     }
   }
 
+  console.log("⚠️ NENHUM MATCH ENCONTRADO PARA:", normalizedMessage)
   return null
 }
 
@@ -128,6 +131,7 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
+    // DMs
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
@@ -142,22 +146,27 @@ export async function POST(req: NextRequest) {
       const rule = await findMatchingRule(recipientId, messageText)
 
       if (rule) {
-        await sendInstagramMessage(senderId, String(rule.response_text))
+        await sendInstagramDM(senderId, String(rule.response_text))
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
     }
 
+    // Comentários
     for (const change of entry.changes ?? []) {
+      if (change.field !== "comments") continue
+
       const value = change.value ?? {}
 
       const commentId = value.id
       const commentText = value.text
       const fromId = value.from?.id
+      const username = value.from?.username
 
       if (!commentId || !commentText) continue
 
       console.log("💬 COMENTÁRIO RECEBIDO:", normalizeText(commentText))
-      console.log("👤 AUTOR COMENTÁRIO:", fromId ?? "desconhecido")
+      console.log("🆔 COMMENT ID:", commentId)
+      console.log("👤 AUTOR:", fromId ?? "sem id", username ?? "sem username")
       console.log("🏢 ACCOUNT:", accountId)
 
       const rule = await findMatchingRule(accountId, commentText)
