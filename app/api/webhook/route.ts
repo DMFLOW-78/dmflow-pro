@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { supabase } from "@/lib/supabase/server"
 
 const VERIFY_TOKEN = "dmflow_token"
+const SITE_LINK = "https://dmflow-pro.vercel.app"
 
 function normalizeText(value: string) {
   return value
@@ -149,6 +150,7 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
+    // DMs
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
@@ -168,6 +170,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Comentários
     for (const change of entry.changes ?? []) {
       if (change.field !== "comments") continue
 
@@ -189,6 +192,15 @@ export async function POST(req: NextRequest) {
 
       if (rule) {
         await replyToInstagramComment(accountId, commentId, String(rule.response_text))
+
+        if (fromId) {
+          await sendInstagramDM(
+            accountId,
+            fromId,
+            `Oi! Aqui está o link do nosso site: ${SITE_LINK}`
+          )
+        }
+
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
     }
