@@ -19,47 +19,76 @@ async function getPageAccessToken(accountId: string) {
     .select("page_access_token")
     .or(`page_id.eq.${accountId},instagram_id.eq.${accountId}`)
     .not("page_access_token", "is", null)
-    .neq("page_access_token", "COLE_AQUI_O_VALOR_DO_IG_ACCESS_TOKEN")
     .limit(1)
     .maybeSingle()
 
   if (error) {
-    console.error("❌ ERRO AO BUSCAR TOKEN:", error)
+    console.error("❌ ERRO AO BUSCAR PAGE TOKEN:", error)
     return null
   }
 
   return data?.page_access_token ?? null
 }
 
-async function sendInstagramDM(accountId: string, recipientId: string, text: string) {
-  const token = await getPageAccessToken(accountId)
+async function getDMAccessToken(accountId: string) {
+  const { data, error } = await supabase
+    .from("instagram_accounts")
+    .select("dm_access_token")
+    .or(`page_id.eq.${accountId},instagram_id.eq.${accountId}`)
+    .not("dm_access_token", "is", null)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("❌ ERRO AO BUSCAR DM TOKEN:", error)
+    return null
+  }
+
+  return data?.dm_access_token ?? null
+}
+
+async function sendInstagramDM(
+  accountId: string,
+  recipientId: string,
+  text: string
+) {
+  const token = await getDMAccessToken(accountId)
 
   if (!token) {
-    console.error("❌ Token da conta não encontrado para DM:", accountId)
+    console.error("❌ DM TOKEN NÃO ENCONTRADO:", accountId)
     return
   }
 
-  const res = await fetch("https://graph.instagram.com/v25.0/me/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      recipient: { id: recipientId },
-      message: { text },
-    }),
-  })
+  const res = await fetch(
+    "https://graph.instagram.com/v25.0/me/messages",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text },
+      }),
+    }
+  )
 
   const data = await res.json()
-  console.log("📤 RESPOSTA DM:", JSON.stringify(data, null, 2))
+
+  console.log("📤 RESPOSTA DM:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
-async function replyToInstagramComment(accountId: string, commentId: string, text: string) {
+async function replyToInstagramComment(
+  accountId: string,
+  commentId: string,
+  text: string
+) {
   const token = await getPageAccessToken(accountId)
 
   if (!token) {
-    console.error("❌ Token da conta não encontrado para comentário:", accountId)
+    console.error("❌ PAGE TOKEN NÃO ENCONTRADO:", accountId)
     return
   }
 
@@ -78,7 +107,9 @@ async function replyToInstagramComment(accountId: string, commentId: string, tex
   )
 
   const data = await res.json()
-  console.log("💬 RESPOSTA COMENTÁRIO:", JSON.stringify(data, null, 2))
+
+  console.log("💬 RESPOSTA COMENTÁRIO:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
 async function findMatchingRule(accountId: string, text: string) {
@@ -120,6 +151,7 @@ async function findMatchingRule(accountId: string, text: string) {
   }
 
   console.log("⚠️ NENHUM MATCH ENCONTRADO PARA:", normalizedMessage)
+
   return null
 }
 
@@ -150,13 +182,17 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
+    // =========================
     // DMs
+    // =========================
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
       const messageText = event.message?.text
 
-      if (!senderId || !recipientId || !messageText) continue
+      if (!senderId || !recipientId || !messageText) {
+        continue
+      }
 
       console.log("📩 DM RECEBIDA:", normalizeText(messageText))
       console.log("👤 SENDER:", senderId)
@@ -165,14 +201,23 @@ export async function POST(req: NextRequest) {
       const rule = await findMatchingRule(recipientId, messageText)
 
       if (rule) {
-        await sendInstagramDM(recipientId, senderId, String(rule.response_text))
+        await sendInstagramDM(
+          recipientId,
+          senderId,
+          String(rule.response_text)
+        )
+
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
     }
 
+    // =========================
     // Comentários
+    // =========================
     for (const change of entry.changes ?? []) {
-      if (change.field !== "comments") continue
+      if (change.field !== "comments") {
+        continue
+      }
 
       const value = change.value ?? {}
 
@@ -181,27 +226,51 @@ export async function POST(req: NextRequest) {
       const fromId = value.from?.id
       const username = value.from?.username
 
-      if (!commentId || !commentText) continue
+      if (!commentId || !commentText) {
+        continue
+      }
 
-      console.log("💬 COMENTÁRIO RECEBIDO:", normalizeText(commentText))
+      console.log(
+        "💬 COMENTÁRIO RECEBIDO:",
+        normalizeText(commentText)
+      )
+
       console.log("🆔 COMMENT ID:", commentId)
-      console.log("👤 AUTOR:", fromId ?? "sem id", username ?? "sem username")
+      console.log(
+        "👤 AUTOR:",
+        fromId ?? "sem id",
+        username ?? "sem username"
+      )
+
       console.log("🏢 ACCOUNT:", accountId)
 
       const rule = await findMatchingRule(accountId, commentText)
 
       if (rule) {
-        await replyToInstagramComment(accountId, commentId, String(rule.response_text))
+        // responde comentário
+        await replyToInstagramComment(
+          accountId,
+          commentId,
+          String(rule.response_text)
+        )
 
+        // envia DM
         if (fromId) {
           await sendInstagramDM(
             accountId,
             fromId,
-            `Oi! Aqui está o link do nosso site: ${SITE_LINK}`
+            `Oi 👋
+
+Vi seu comentário no post 😊
+
+Aqui está o link:
+${SITE_LINK}`
           )
         }
 
-        return new Response("EVENT_RECEIVED", { status: 200 })
+        return new Response("EVENT_RECEIVED", {
+          status: 200,
+        })
       }
     }
   }
