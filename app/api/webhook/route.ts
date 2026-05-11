@@ -29,37 +29,64 @@ async function getTokens(accountId: string) {
   return data
 }
 
-async function sendInstagramDM(accountId: string, recipientId: string, text: string) {
+// =========================
+// DM NORMAL
+// =========================
+async function sendInstagramDM(
+  accountId: string,
+  recipientId: string,
+  text: string
+) {
   const tokens = await getTokens(accountId)
-  const token = tokens?.dm_access_token || tokens?.page_access_token
+
+  // 🔥 DM normal usa dm_access_token
+  const token = tokens?.dm_access_token
 
   if (!token) {
-    console.error("❌ TOKEN DE DM NÃO ENCONTRADO:", accountId)
+    console.error("❌ DM TOKEN NÃO ENCONTRADO:", accountId)
     return
   }
 
-  const res = await fetch("https://graph.instagram.com/v25.0/me/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      recipient: { id: recipientId },
-      message: { text },
-    }),
-  })
+  const res = await fetch(
+    "https://graph.instagram.com/v25.0/me/messages",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text },
+      }),
+    }
+  )
 
   const data = await res.json()
-  console.log("📤 RESPOSTA DM:", JSON.stringify(data, null, 2))
+
+  console.log("📤 RESPOSTA DM:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
-async function sendPrivateReply(accountId: string, commentId: string, text: string) {
+// =========================
+// PRIVATE REPLY
+// =========================
+async function sendPrivateReply(
+  accountId: string,
+  commentId: string,
+  text: string
+) {
   const tokens = await getTokens(accountId)
-  const token = tokens?.dm_access_token || tokens?.page_access_token
+
+  // 🔥 PRIVATE REPLY usa PAGE TOKEN
+  const token = tokens?.page_access_token
 
   if (!token) {
-    console.error("❌ TOKEN NÃO ENCONTRADO PARA PRIVATE REPLY:", accountId)
+    console.error(
+      "❌ PAGE TOKEN NÃO ENCONTRADO PARA PRIVATE REPLY:",
+      accountId
+    )
+
     return
   }
 
@@ -83,15 +110,29 @@ async function sendPrivateReply(accountId: string, commentId: string, text: stri
   )
 
   const data = await res.json()
-  console.log("📩 PRIVATE REPLY:", JSON.stringify(data, null, 2))
+
+  console.log("📩 PRIVATE REPLY:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
-async function replyToInstagramComment(accountId: string, commentId: string, text: string) {
+// =========================
+// RESPOSTA PÚBLICA
+// =========================
+async function replyToInstagramComment(
+  accountId: string,
+  commentId: string,
+  text: string
+) {
   const tokens = await getTokens(accountId)
+
   const token = tokens?.page_access_token
 
   if (!token) {
-    console.error("❌ PAGE TOKEN NÃO ENCONTRADO PARA COMENTÁRIO:", accountId)
+    console.error(
+      "❌ PAGE TOKEN NÃO ENCONTRADO PARA COMENTÁRIO:",
+      accountId
+    )
+
     return
   }
 
@@ -110,7 +151,9 @@ async function replyToInstagramComment(accountId: string, commentId: string, tex
   )
 
   const data = await res.json()
-  console.log("💬 RESPOSTA COMENTÁRIO:", JSON.stringify(data, null, 2))
+
+  console.log("💬 RESPOSTA COMENTÁRIO:")
+  console.log(JSON.stringify(data, null, 2))
 }
 
 async function findMatchingRule(accountId: string, text: string) {
@@ -152,9 +195,13 @@ async function findMatchingRule(accountId: string, text: string) {
   }
 
   console.log("⚠️ NENHUM MATCH ENCONTRADO PARA:", normalizedMessage)
+
   return null
 }
 
+// =========================
+// VERIFY WEBHOOK
+// =========================
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
@@ -169,6 +216,9 @@ export async function GET(req: NextRequest) {
   return new Response("Erro de verificação", { status: 403 })
 }
 
+// =========================
+// WEBHOOK
+// =========================
 export async function POST(req: NextRequest) {
   const body = await req.json()
 
@@ -182,29 +232,45 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
-    // DMs normais, quando a pessoa já falou no direct
+    // =========================
+    // DMs NORMAIS
+    // =========================
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
       const messageText = event.message?.text
 
-      if (!senderId || !recipientId || !messageText) continue
+      if (!senderId || !recipientId || !messageText) {
+        continue
+      }
 
       console.log("📩 DM RECEBIDA:", normalizeText(messageText))
-      console.log("👤 SENDER:", senderId)
-      console.log("🏢 RECIPIENT:", recipientId)
 
-      const rule = await findMatchingRule(recipientId, messageText)
+      const rule = await findMatchingRule(
+        recipientId,
+        messageText
+      )
 
       if (rule) {
-        await sendInstagramDM(recipientId, senderId, String(rule.response_text))
-        return new Response("EVENT_RECEIVED", { status: 200 })
+        await sendInstagramDM(
+          recipientId,
+          senderId,
+          String(rule.response_text)
+        )
+
+        return new Response("EVENT_RECEIVED", {
+          status: 200,
+        })
       }
     }
 
-    // Comentários: responde publicamente + envia Private Reply via comment_id
+    // =========================
+    // COMENTÁRIOS
+    // =========================
     for (const change of entry.changes ?? []) {
-      if (change.field !== "comments") continue
+      if (change.field !== "comments") {
+        continue
+      }
 
       const value = change.value ?? {}
 
@@ -212,18 +278,37 @@ export async function POST(req: NextRequest) {
       const commentText = value.text
       const username = value.from?.username
 
-      if (!commentId || !commentText) continue
+      if (!commentId || !commentText) {
+        continue
+      }
 
-      console.log("💬 COMENTÁRIO RECEBIDO:", normalizeText(commentText))
+      console.log(
+        "💬 COMENTÁRIO RECEBIDO:",
+        normalizeText(commentText)
+      )
+
       console.log("🆔 COMMENT ID:", commentId)
-      console.log("👤 AUTOR:", username ?? "sem username")
+      console.log(
+        "👤 AUTOR:",
+        username ?? "sem username"
+      )
+
       console.log("🏢 ACCOUNT:", accountId)
 
-      const rule = await findMatchingRule(accountId, commentText)
+      const rule = await findMatchingRule(
+        accountId,
+        commentText
+      )
 
       if (rule) {
-        await replyToInstagramComment(accountId, commentId, String(rule.response_text))
+        // resposta pública
+        await replyToInstagramComment(
+          accountId,
+          commentId,
+          String(rule.response_text)
+        )
 
+        // 🔥 PRIVATE REPLY
         await sendPrivateReply(
           accountId,
           commentId,
@@ -235,7 +320,9 @@ Aqui está o link:
 ${SITE_LINK}`
         )
 
-        return new Response("EVENT_RECEIVED", { status: 200 })
+        return new Response("EVENT_RECEIVED", {
+          status: 200,
+        })
       }
     }
   }
