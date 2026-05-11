@@ -54,6 +54,38 @@ async function sendInstagramDM(accountId: string, recipientId: string, text: str
   console.log("📤 RESPOSTA DM:", JSON.stringify(data, null, 2))
 }
 
+async function sendPrivateReply(accountId: string, commentId: string, text: string) {
+  const tokens = await getTokens(accountId)
+  const token = tokens?.dm_access_token || tokens?.page_access_token
+
+  if (!token) {
+    console.error("❌ TOKEN NÃO ENCONTRADO PARA PRIVATE REPLY:", accountId)
+    return
+  }
+
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${accountId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: {
+          comment_id: commentId,
+        },
+        message: {
+          text,
+        },
+        access_token: token,
+      }),
+    }
+  )
+
+  const data = await res.json()
+  console.log("📩 PRIVATE REPLY:", JSON.stringify(data, null, 2))
+}
+
 async function replyToInstagramComment(accountId: string, commentId: string, text: string) {
   const tokens = await getTokens(accountId)
   const token = tokens?.page_access_token
@@ -150,7 +182,7 @@ export async function POST(req: NextRequest) {
   for (const entry of body.entry ?? []) {
     const accountId = String(entry.id ?? "")
 
-    // DMs normais
+    // DMs normais, quando a pessoa já falou no direct
     for (const event of entry.messaging ?? []) {
       const senderId = event.sender?.id
       const recipientId = event.recipient?.id
@@ -170,7 +202,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Comentários
+    // Comentários: responde publicamente + envia Private Reply via comment_id
     for (const change of entry.changes ?? []) {
       if (change.field !== "comments") continue
 
@@ -179,14 +211,12 @@ export async function POST(req: NextRequest) {
       const commentId = value.id
       const commentText = value.text
       const username = value.from?.username
-      const dmRecipientId = value.from?.self_ig_scoped_id || value.from?.id
 
       if (!commentId || !commentText) continue
 
       console.log("💬 COMENTÁRIO RECEBIDO:", normalizeText(commentText))
       console.log("🆔 COMMENT ID:", commentId)
       console.log("👤 AUTOR:", username ?? "sem username")
-      console.log("📩 DM RECIPIENT:", dmRecipientId ?? "sem id")
       console.log("🏢 ACCOUNT:", accountId)
 
       const rule = await findMatchingRule(accountId, commentText)
@@ -194,18 +224,16 @@ export async function POST(req: NextRequest) {
       if (rule) {
         await replyToInstagramComment(accountId, commentId, String(rule.response_text))
 
-        if (dmRecipientId) {
-          await sendInstagramDM(
-            accountId,
-            String(dmRecipientId),
-            `Oi 👋
+        await sendPrivateReply(
+          accountId,
+          commentId,
+          `Oi 👋
 
 Vi seu comentário no post 😊
 
 Aqui está o link:
 ${SITE_LINK}`
-          )
-        }
+        )
 
         return new Response("EVENT_RECEIVED", { status: 200 })
       }
