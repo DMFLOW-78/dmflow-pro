@@ -1,97 +1,43 @@
-import { NextRequest } from "next/server"
-import { supabase } from "@/lib/supabase/server"
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-const VERIFY_TOKEN = "dmflow_token"
-const SITE_LINK = "https://dmflow-pro.vercel.app"
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-function normalizeText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, "")
-    .trim()
-}
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN!;
 
-async function getTokens(accountId: string) {
-  const { data, error } = await supabase
-    .from("instagram_accounts")
-    .select("page_access_token, dm_access_token")
-    .or(`page_id.eq.${accountId},instagram_id.eq.${accountId}`)
-    .limit(1)
-    .maybeSingle()
+async function sendCommentReply(commentId: string, message: string) {
+  const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
-  if (error) {
-    console.error("❌ ERRO AO BUSCAR TOKENS:", error)
-    return null
-  }
-
-  return data
-}
-
-// =========================
-// DM NORMAL
-// =========================
-async function sendInstagramDM(
-  accountId: string,
-  recipientId: string,
-  text: string
-) {
-  const tokens = await getTokens(accountId)
-
-  // 🔥 DM normal usa dm_access_token
-  const token = tokens?.dm_access_token
-
-  if (!token) {
-    console.error("❌ DM TOKEN NÃO ENCONTRADO:", accountId)
-    return
-  }
-
-  const res = await fetch(
-    "https://graph.instagram.com/v25.0/me/messages",
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/${commentId}/replies`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: { text },
+        message,
+        access_token: token,
       }),
     }
-  )
+  );
 
-  const data = await res.json()
+  const data = await response.json();
 
-  console.log("📤 RESPOSTA DM:")
-  console.log(JSON.stringify(data, null, 2))
+  console.log("💬 RESPOSTA COMENTÁRIO:");
+  console.log(JSON.stringify(data, null, 2));
+
+  return data;
 }
 
-// =========================
-// PRIVATE REPLY
-// =========================
-async function sendPrivateReply(
-  accountId: string,
-  commentId: string,
-  text: string
-) {
-  const tokens = await getTokens(accountId)
+async function sendPrivateReply(commentId: string, message: string) {
+  const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
-  // 🔥 PRIVATE REPLY usa PAGE TOKEN
-  const token = tokens?.page_access_token
-
-  if (!token) {
-    console.error(
-      "❌ PAGE TOKEN NÃO ENCONTRADO PARA PRIVATE REPLY:",
-      accountId
-    )
-
-    return
-  }
-
-  const res = await fetch(
-    `https://graph.facebook.com/v20.0/${accountId}/messages`,
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`,
     {
       method: "POST",
       headers: {
@@ -102,230 +48,143 @@ async function sendPrivateReply(
           comment_id: commentId,
         },
         message: {
-          text,
+          text: message,
         },
-        access_token: token,
       }),
     }
-  )
+  );
 
-  const data = await res.json()
+  const data = await response.json();
 
-  console.log("📩 PRIVATE REPLY:")
-  console.log(JSON.stringify(data, null, 2))
+  console.log("📩 PRIVATE REPLY:");
+  console.log(JSON.stringify(data, null, 2));
+
+  return data;
 }
 
-// =========================
-// RESPOSTA PÚBLICA
-// =========================
-async function replyToInstagramComment(
-  accountId: string,
-  commentId: string,
-  text: string
-) {
-  const tokens = await getTokens(accountId)
+async function sendInstagramDM(instagramUserId: string, message: string) {
+  const token = process.env.DM_ACCESS_TOKEN?.trim();
 
-  const token = tokens?.page_access_token
-
-  if (!token) {
-    console.error(
-      "❌ PAGE TOKEN NÃO ENCONTRADO PARA COMENTÁRIO:",
-      accountId
-    )
-
-    return
-  }
-
-  const res = await fetch(
-    `https://graph.facebook.com/v20.0/${commentId}/replies`,
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: text,
-        access_token: token,
+        recipient: {
+          id: instagramUserId,
+        },
+        message: {
+          text: message,
+        },
       }),
     }
-  )
+  );
 
-  const data = await res.json()
+  const data = await response.json();
 
-  console.log("💬 RESPOSTA COMENTÁRIO:")
-  console.log(JSON.stringify(data, null, 2))
+  console.log("📨 DM INSTAGRAM:");
+  console.log(JSON.stringify(data, null, 2));
+
+  return data;
 }
 
-async function findMatchingRule(accountId: string, text: string) {
-  const normalizedMessage = normalizeText(text)
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
 
-  const { data: rules, error } = await supabase
-    .from("automation_rules")
-    .select("*")
-    .eq("channel", "instagram")
-    .eq("account_id", accountId)
-    .eq("active", true)
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
 
-  if (error) {
-    console.error("❌ ERRO AO BUSCAR REGRAS:", error)
-    return null
+  if (mode && token === VERIFY_TOKEN) {
+    return new Response(challenge, { status: 200 });
   }
 
-  console.log("📦 REGRAS ENCONTRADAS:", rules?.length ?? 0)
+  return new Response("Erro de verificação", { status: 403 });
+}
 
-  for (const rule of rules ?? []) {
-    const response = String(rule.response_text ?? "").trim()
-    const rawTrigger = String(rule.trigger_text ?? "")
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
 
-    if (!rawTrigger || !response) continue
+    console.log("🔥 WEBHOOK RECEBIDO");
+    console.log(JSON.stringify(body, null, 2));
 
-    const triggers = rawTrigger
-      .split(",")
-      .map((item) => normalizeText(item))
-      .filter(Boolean)
-
-    console.log("🔎 TESTANDO REGRA:", triggers)
-
-    for (const trigger of triggers) {
-      if (normalizedMessage.includes(trigger)) {
-        console.log("⚡ MATCH ENCONTRADO:", trigger)
-        return rule
-      }
+    if (body.object !== "instagram") {
+      return NextResponse.json({ ok: true });
     }
-  }
 
-  console.log("⚠️ NENHUM MATCH ENCONTRADO PARA:", normalizedMessage)
+    for (const entry of body.entry || []) {
+      for (const change of entry.changes || []) {
+        if (change.field !== "comments") continue;
 
-  return null
-}
+        const commentText =
+          change.value?.text?.toLowerCase()?.trim() || "";
 
-// =========================
-// VERIFY WEBHOOK
-// =========================
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
+        const commentId = change.value?.id;
+        const instagramUserId = change.value?.from?.id;
+        const username = change.value?.from?.username;
 
-  const mode = searchParams.get("hub.mode")
-  const token = searchParams.get("hub.verify_token")
-  const challenge = searchParams.get("hub.challenge")
+        console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
+        console.log("🆔 COMMENT ID:", commentId);
+        console.log("👤 AUTOR:", username);
+        console.log("🏢 ACCOUNT:", entry.id);
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    return new Response(challenge ?? "", { status: 200 })
-  }
+        const { data: rules, error } = await supabase
+          .from("rules")
+          .select("*")
+          .eq("active", true);
 
-  return new Response("Erro de verificação", { status: 403 })
-}
+        if (error) {
+          console.log("❌ ERRO SUPABASE:", error);
+          continue;
+        }
 
-// =========================
-// WEBHOOK
-// =========================
-export async function POST(req: NextRequest) {
-  const body = await req.json()
+        console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
 
-  console.log("🔥 WEBHOOK RECEBIDO")
-  console.log(JSON.stringify(body, null, 2))
+        for (const rule of rules || []) {
+          const keywords = (rule.keyword || "")
+            .split(",")
+            .map((k: string) => k.trim().toLowerCase());
 
-  if (body.object !== "instagram") {
-    return new Response("EVENT_RECEIVED", { status: 200 })
-  }
+          console.log("🔎 TESTANDO REGRA:", keywords);
 
-  for (const entry of body.entry ?? []) {
-    const accountId = String(entry.id ?? "")
+          const matchedKeyword = keywords.find((keyword: string) =>
+            commentText.includes(keyword)
+          );
 
-    // =========================
-    // DMs NORMAIS
-    // =========================
-    for (const event of entry.messaging ?? []) {
-      const senderId = event.sender?.id
-      const recipientId = event.recipient?.id
-      const messageText = event.message?.text
+          if (!matchedKeyword) continue;
 
-      if (!senderId || !recipientId || !messageText) {
-        continue
-      }
+          console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
 
-      console.log("📩 DM RECEBIDA:", normalizeText(messageText))
+          if (rule.reply_comment) {
+            await sendCommentReply(
+              commentId,
+              rule.reply_comment
+            );
+          }
 
-      const rule = await findMatchingRule(
-        recipientId,
-        messageText
-      )
+          if (rule.reply_dm) {
+            await sendPrivateReply(
+              commentId,
+              rule.reply_dm
+            );
+          }
 
-      if (rule) {
-        await sendInstagramDM(
-          recipientId,
-          senderId,
-          String(rule.response_text)
-        )
-
-        return new Response("EVENT_RECEIVED", {
-          status: 200,
-        })
+          break;
+        }
       }
     }
 
-    // =========================
-    // COMENTÁRIOS
-    // =========================
-    for (const change of entry.changes ?? []) {
-      if (change.field !== "comments") {
-        continue
-      }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("❌ ERRO WEBHOOK:", error);
 
-      const value = change.value ?? {}
-
-      const commentId = value.id
-      const commentText = value.text
-      const username = value.from?.username
-
-      if (!commentId || !commentText) {
-        continue
-      }
-
-      console.log(
-        "💬 COMENTÁRIO RECEBIDO:",
-        normalizeText(commentText)
-      )
-
-      console.log("🆔 COMMENT ID:", commentId)
-      console.log(
-        "👤 AUTOR:",
-        username ?? "sem username"
-      )
-
-      console.log("🏢 ACCOUNT:", accountId)
-
-      const rule = await findMatchingRule(
-        accountId,
-        commentText
-      )
-
-      if (rule) {
-        // resposta pública
-        await replyToInstagramComment(
-          accountId,
-          commentId,
-          String(rule.response_text)
-        )
-
-        // 🔥 PRIVATE REPLY
-        await sendPrivateReply(
-          accountId,
-          commentId,
-          `Oi 👋
-
-Vi seu comentário no post 😊
-
-Aqui está o link:
-${SITE_LINK}`
-        )
-
-        return new Response("EVENT_RECEIVED", {
-          status: 200,
-        })
-      }
-    }
+    return NextResponse.json(
+      { error: "Erro interno" },
+      { status: 500 }
+    );
   }
-
-  return new Response("EVENT_RECEIVED", { status: 200 })
 }
