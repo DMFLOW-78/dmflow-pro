@@ -40,7 +40,11 @@ async function sendCommentReply(commentId: string, message: string) {
   return data;
 }
 
-async function sendPrivateReply(commentId: string, message: string) {
+async function sendPrivateReply(
+  instagramAccountId: string,
+  commentId: string,
+  message: string
+) {
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
   if (!token) {
@@ -49,7 +53,7 @@ async function sendPrivateReply(commentId: string, message: string) {
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
+    `https://graph.facebook.com/v21.0/${instagramAccountId}/messages?access_token=${encodeURIComponent(
       token
     )}`,
     {
@@ -116,6 +120,8 @@ export async function POST(req: Request) {
     }
 
     for (const entry of body.entry || []) {
+      const instagramAccountId = entry.id;
+
       for (const change of entry.changes || []) {
         if (change.field !== "comments") continue;
 
@@ -129,17 +135,18 @@ export async function POST(req: Request) {
         console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
         console.log("🆔 COMMENT ID:", commentId);
         console.log("👤 AUTOR:", username);
-        console.log("🏢 ACCOUNT:", entry.id);
+        console.log("🏢 ACCOUNT:", instagramAccountId);
 
-        if (!commentId || !commentText) {
-          console.log("⚠️ Comentário sem ID ou texto. Ignorando.");
+        if (!instagramAccountId || !commentId || !commentText) {
+          console.log("⚠️ Comentário sem account, ID ou texto. Ignorando.");
           continue;
         }
 
         const { data: rules, error } = await supabase
           .from("automation_rules")
           .select("*")
-          .eq("active", true);
+          .eq("active", true)
+          .eq("account_id", instagramAccountId);
 
         if (error) {
           console.log("❌ ERRO SUPABASE:", error);
@@ -176,7 +183,11 @@ export async function POST(req: Request) {
           }
 
           await sendCommentReply(commentId, responseText);
-          await sendPrivateReply(commentId, responseText);
+          await sendPrivateReply(
+            instagramAccountId,
+            commentId,
+            responseText
+          );
 
           break;
         }
