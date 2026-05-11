@@ -45,6 +45,11 @@ async function sendPrivateReply(
   commentId: string,
   message: string
 ) {
+  console.log(
+    "🚀 PRIVATE REPLY ENDPOINT ACCOUNT:", 
+    instagramAccountId
+  );
+
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
   if (!token) {
