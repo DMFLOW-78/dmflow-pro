@@ -133,9 +133,9 @@ export async function POST(req: Request) {
         console.log("🏢 ACCOUNT:", entry.id);
 
         const { data: rules, error } = await supabase
-          .from("rules")
-          .select("*")
-          .eq("active", true);
+  .from("automation_rules")
+  .select("*")
+  .eq("active", true);
 
         if (error) {
           console.log("❌ ERRO SUPABASE:", error);
