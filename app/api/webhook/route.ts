@@ -76,80 +76,15 @@ async function sendPrivateReply(commentId: string, message: string) {
   return data;
 }
 
-async function sendInstagramDM(instagramUserId: string, message: string) {
-  const token = process.env.DM_ACCESS_TOKEN?.trim();
-
-  if (!token) {
-    console.error("❌ DM_ACCESS_TOKEN ausente");
-    return;
-  }
-
-  const response = await fetch(
-    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
-      token
-    )}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        recipient: {
-          id: instagramUserId,
-        },
-        message: {
-          text: message,
-        },
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  console.log("📨 DM INSTAGRAM:");
-  console.log(JSON.stringify(data, null, 2));
-
-  return data;
-}
-
 function getKeywords(rule: any): string[] {
-  const rawKeywords =
-    rule.trigger_keywords ||
-    rule.keywords ||
-    rule.keyword ||
-    rule.trigger ||
-    "";
-
-  if (Array.isArray(rawKeywords)) {
-    return rawKeywords
-      .map((k) => String(k).trim().toLowerCase())
-      .filter(Boolean);
-  }
-
-  return String(rawKeywords)
+  return String(rule.trigger_text || "")
     .split(",")
     .map((k) => k.trim().toLowerCase())
     .filter(Boolean);
 }
 
-function getPublicReply(rule: any): string {
-  return (
-    rule.public_reply ||
-    rule.reply_comment ||
-    rule.comment_reply ||
-    rule.response_comment ||
-    ""
-  );
-}
-
-function getPrivateReply(rule: any): string {
-  return (
-    rule.dm_message ||
-    rule.reply_dm ||
-    rule.private_reply ||
-    rule.response_dm ||
-    ""
-  );
+function getResponseText(rule: any): string {
+  return String(rule.response_text || "").trim();
 }
 
 export async function GET(req: Request) {
@@ -189,7 +124,6 @@ export async function POST(req: Request) {
           .trim();
 
         const commentId = change.value?.id;
-        const instagramUserId = change.value?.from?.id;
         const username = change.value?.from?.username;
 
         console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
@@ -224,7 +158,7 @@ export async function POST(req: Request) {
             continue;
           }
 
-          const matchedKeyword = keywords.find((keyword: string) =>
+          const matchedKeyword = keywords.find((keyword) =>
             commentText.includes(keyword)
           );
 
@@ -232,19 +166,17 @@ export async function POST(req: Request) {
 
           console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
 
-          const publicReply = getPublicReply(rule);
-          const privateReply = getPrivateReply(rule);
+          const responseText = getResponseText(rule);
 
-          console.log("💬 PUBLIC_REPLY existe?", Boolean(publicReply));
-          console.log("📩 PRIVATE_REPLY existe?", Boolean(privateReply));
+          console.log("📝 RESPONSE_TEXT existe?", Boolean(responseText));
 
-          if (publicReply) {
-            await sendCommentReply(commentId, publicReply);
+          if (!responseText) {
+            console.log("⚠️ Regra sem resposta. Ignorando.");
+            break;
           }
 
-          if (privateReply) {
-            await sendPrivateReply(commentId, privateReply);
-          }
+          await sendCommentReply(commentId, responseText);
+          await sendPrivateReply(commentId, responseText);
 
           break;
         }
