@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL_SUPABASE;
+
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN!;
 
 async function sendCommentReply(commentId: string, message: string) {
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
+
+  if (!token) {
+    console.error("❌ PAGE_ACCESS_TOKEN ausente");
+    return;
+  }
 
   const response = await fetch(
     `https://graph.facebook.com/v21.0/${commentId}/replies`,
@@ -36,8 +43,15 @@ async function sendCommentReply(commentId: string, message: string) {
 async function sendPrivateReply(commentId: string, message: string) {
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
+  if (!token) {
+    console.error("❌ PAGE_ACCESS_TOKEN ausente");
+    return;
+  }
+
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`,
+    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
+      token
+    )}`,
     {
       method: "POST",
       headers: {
@@ -65,8 +79,15 @@ async function sendPrivateReply(commentId: string, message: string) {
 async function sendInstagramDM(instagramUserId: string, message: string) {
   const token = process.env.DM_ACCESS_TOKEN?.trim();
 
+  if (!token) {
+    console.error("❌ DM_ACCESS_TOKEN ausente");
+    return;
+  }
+
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/me/messages?access_token=${token}`,
+    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
+      token
+    )}`,
     {
       method: "POST",
       headers: {
@@ -91,6 +112,46 @@ async function sendInstagramDM(instagramUserId: string, message: string) {
   return data;
 }
 
+function getKeywords(rule: any): string[] {
+  const rawKeywords =
+    rule.trigger_keywords ||
+    rule.keywords ||
+    rule.keyword ||
+    rule.trigger ||
+    "";
+
+  if (Array.isArray(rawKeywords)) {
+    return rawKeywords
+      .map((k) => String(k).trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return String(rawKeywords)
+    .split(",")
+    .map((k) => k.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getPublicReply(rule: any): string {
+  return (
+    rule.public_reply ||
+    rule.reply_comment ||
+    rule.comment_reply ||
+    rule.response_comment ||
+    ""
+  );
+}
+
+function getPrivateReply(rule: any): string {
+  return (
+    rule.dm_message ||
+    rule.reply_dm ||
+    rule.private_reply ||
+    rule.response_dm ||
+    ""
+  );
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
@@ -98,7 +159,7 @@ export async function GET(req: Request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode && token === VERIFY_TOKEN) {
+  if (mode === "subscribe" && token === VERIFY_TOKEN) {
     return new Response(challenge, { status: 200 });
   }
 
@@ -107,6 +168,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    console.log("SUPABASE_URL existe?", Boolean(supabaseUrl));
+    console.log("SUPABASE_KEY existe?", Boolean(supabaseKey));
+
     const body = await req.json();
 
     console.log("🔥 WEBHOOK RECEBIDO");
@@ -120,8 +184,9 @@ export async function POST(req: Request) {
       for (const change of entry.changes || []) {
         if (change.field !== "comments") continue;
 
-        const commentText =
-          change.value?.text?.toLowerCase()?.trim() || "";
+        const commentText = String(change.value?.text || "")
+          .toLowerCase()
+          .trim();
 
         const commentId = change.value?.id;
         const instagramUserId = change.value?.from?.id;
@@ -132,10 +197,15 @@ export async function POST(req: Request) {
         console.log("👤 AUTOR:", username);
         console.log("🏢 ACCOUNT:", entry.id);
 
+        if (!commentId || !commentText) {
+          console.log("⚠️ Comentário sem ID ou texto. Ignorando.");
+          continue;
+        }
+
         const { data: rules, error } = await supabase
-  .from("automation_rules")
-  .select("*")
-  .eq("active", true);
+          .from("automation_rules")
+          .select("*")
+          .eq("active", true);
 
         if (error) {
           console.log("❌ ERRO SUPABASE:", error);
@@ -145,11 +215,14 @@ export async function POST(req: Request) {
         console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
 
         for (const rule of rules || []) {
-          const keywords = (rule.keyword || "")
-            .split(",")
-            .map((k: string) => k.trim().toLowerCase());
+          const keywords = getKeywords(rule);
 
           console.log("🔎 TESTANDO REGRA:", keywords);
+
+          if (keywords.length === 0) {
+            console.log("⚠️ Regra sem palavra-chave. Ignorando.");
+            continue;
+          }
 
           const matchedKeyword = keywords.find((keyword: string) =>
             commentText.includes(keyword)
@@ -159,18 +232,18 @@ export async function POST(req: Request) {
 
           console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
 
-          if (rule.reply_comment) {
-            await sendCommentReply(
-              commentId,
-              rule.reply_comment
-            );
+          const publicReply = getPublicReply(rule);
+          const privateReply = getPrivateReply(rule);
+
+          console.log("💬 PUBLIC_REPLY existe?", Boolean(publicReply));
+          console.log("📩 PRIVATE_REPLY existe?", Boolean(privateReply));
+
+          if (publicReply) {
+            await sendCommentReply(commentId, publicReply);
           }
 
-          if (rule.reply_dm) {
-            await sendPrivateReply(
-              commentId,
-              rule.reply_dm
-            );
+          if (privateReply) {
+            await sendPrivateReply(commentId, privateReply);
           }
 
           break;
