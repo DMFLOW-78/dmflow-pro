@@ -1,227 +1,387 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { createSupabaseClient } from "@/lib/supabase/client"
+import { useEffect, useMemo, useState } from "react";
+import { createSupabaseClient } from "@/lib/supabase/client";
 
 type Rule = {
-  id: string
-  channel: string
-  account_id: string
-  trigger_text: string
-  response_text: string
-  active: boolean
-  created_at: string
-}
-
-const ACCOUNT_ID = "17841433249169574"
+  id: string;
+  trigger_text: string;
+  response_text: string;
+  active: boolean;
+};
 
 export default function FlowsPage() {
-  const supabase = createSupabaseClient()
+  const supabase = useMemo(() => createSupabaseClient(), []);
 
-  const [rules, setRules] = useState<Rule[]>([])
-  const [triggerText, setTriggerText] = useState("")
-  const [responseText, setResponseText] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [trigger, setTrigger] = useState("");
+  const [response, setResponse] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function loadRules() {
-    setLoading(true)
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("automation_rules")
       .select("*")
-      .eq("channel", "instagram")
-      .eq("account_id", ACCOUNT_ID)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error(error)
-    } else {
-      setRules(data ?? [])
-    }
-
-    setLoading(false)
-  }
-
-  async function createRule() {
-    if (!triggerText.trim() || !responseText.trim()) {
-      alert("Preencha a palavra-chave e a resposta.")
-      return
-    }
-
-    const { error } = await supabase.from("automation_rules").insert({
-      channel: "instagram",
-      account_id: ACCOUNT_ID,
-      trigger_text: triggerText.trim().toLowerCase(),
-      response_text: responseText.trim(),
-      active: true,
-    })
-
-    if (error) {
-      alert("Erro ao criar regra.")
-      console.error(error)
-      return
-    }
-
-    setTriggerText("")
-    setResponseText("")
-    await loadRules()
-  }
-
-  async function toggleRule(rule: Rule) {
-    const { error } = await supabase
-      .from("automation_rules")
-      .update({ active: !rule.active })
-      .eq("id", rule.id)
-
-    if (error) {
-      alert("Erro ao atualizar regra.")
-      console.error(error)
-      return
-    }
-
-    await loadRules()
-  }
-
-  async function deleteRule(id: string) {
-    const ok = confirm("Deseja excluir esta regra?")
-    if (!ok) return
-
-    const { error } = await supabase
-      .from("automation_rules")
-      .delete()
-      .eq("id", id)
-
-    if (error) {
-      alert("Erro ao excluir regra.")
-      console.error(error)
-      return
-    }
-
-    await loadRules()
+    setRules(data || []);
   }
 
   useEffect(() => {
-    loadRules()
-  }, [])
+    loadRules();
+  }, []);
+
+  async function createRule() {
+    if (!trigger || !response) return;
+
+    setLoading(true);
+
+    await supabase.from("automation_rules").insert({
+      trigger_text: trigger,
+      response_text: response,
+      active: true,
+      account_id: "17841433249169574",
+    });
+
+    setTrigger("");
+    setResponse("");
+
+    await loadRules();
+
+    setLoading(false);
+  }
+
+  async function toggleRule(id: string, active: boolean) {
+    await supabase
+      .from("automation_rules")
+      .update({ active: !active })
+      .eq("id", id);
+
+    await loadRules();
+  }
 
   return (
-    <main style={{ padding: 32, color: "white", background: "#070711", minHeight: "100vh" }}>
-      <h1 style={{ fontSize: 36, marginBottom: 8 }}>Fluxos</h1>
-      <p style={{ color: "#b8b8c8", marginBottom: 32 }}>
-        Crie respostas automáticas para mensagens recebidas no Instagram.
-      </p>
-
-      <section
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.25), transparent 28%), #050510",
+        color: "#fff",
+        padding: "30px",
+      }}
+    >
+      <div
         style={{
-          background: "#11111d",
-          border: "1px solid #29293a",
-          borderRadius: 20,
-          padding: 24,
-          marginBottom: 32,
+          maxWidth: "1180px",
+          margin: "0 auto",
         }}
       >
-        <h2 style={{ fontSize: 24, marginBottom: 20 }}>Nova automação</h2>
-
-        <label>Palavra-chave</label>
-        <input
-          value={triggerText}
-          onChange={(e) => setTriggerText(e.target.value)}
-          placeholder="Ex: preço"
+        <div
           style={{
-            width: "100%",
-            padding: 14,
-            marginTop: 8,
-            marginBottom: 18,
-            borderRadius: 12,
-            border: "1px solid #333",
-            background: "#080812",
-            color: "white",
-          }}
-        />
-
-        <label>Resposta automática</label>
-        <textarea
-          value={responseText}
-          onChange={(e) => setResponseText(e.target.value)}
-          placeholder="Ex: Olá! Nosso plano começa em R$29/mês."
-          rows={4}
-          style={{
-            width: "100%",
-            padding: 14,
-            marginTop: 8,
-            marginBottom: 18,
-            borderRadius: 12,
-            border: "1px solid #333",
-            background: "#080812",
-            color: "white",
-          }}
-        />
-
-        <button
-          onClick={createRule}
-          style={{
-            padding: "14px 22px",
-            borderRadius: 12,
-            border: "none",
-            background: "linear-gradient(90deg, #8b2cff, #ff00a8)",
-            color: "white",
-            fontWeight: 700,
-            cursor: "pointer",
+            marginBottom: "34px",
           }}
         >
-          Criar automação
-        </button>
-      </section>
-
-      <section
-        style={{
-          background: "#11111d",
-          border: "1px solid #29293a",
-          borderRadius: 20,
-          padding: 24,
-        }}
-      >
-        <h2 style={{ fontSize: 24, marginBottom: 20 }}>Automações cadastradas</h2>
-
-        {loading && <p>Carregando...</p>}
-
-        {!loading && rules.length === 0 && (
-          <p style={{ color: "#b8b8c8" }}>Nenhuma automação cadastrada ainda.</p>
-        )}
-
-        {rules.map((rule) => (
-          <div
-            key={rule.id}
+          <p
             style={{
-              border: "1px solid #29293a",
-              borderRadius: 16,
-              padding: 18,
-              marginBottom: 14,
-              background: "#080812",
+              color: "#e879f9",
+              margin: 0,
+              fontWeight: 800,
+              letterSpacing: ".08em",
             }}
           >
-            <strong>Quando receber:</strong>
-            <p style={{ color: "#ff4fd8", fontSize: 20 }}>{rule.trigger_text}</p>
+            67FLOW AUTOMATIONS
+          </p>
 
-            <strong>Responder:</strong>
-            <p style={{ color: "#ddd" }}>{rule.response_text}</p>
+          <h1
+            style={{
+              margin: "10px 0",
+              fontSize: "42px",
+            }}
+          >
+            Fluxos automáticos
+          </h1>
 
-            <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-              <button onClick={() => toggleRule(rule)}>
-                {rule.active ? "Desativar" : "Ativar"}
-              </button>
+          <p
+            style={{
+              color: "rgba(255,255,255,.68)",
+              maxWidth: "720px",
+              lineHeight: 1.7,
+              fontSize: "17px",
+            }}
+          >
+            Crie automações para responder comentários e mensagens do Instagram
+            automaticamente usando palavras-chave inteligentes.
+          </p>
+        </div>
 
-              <button onClick={() => deleteRule(rule.id)}>
-                Excluir
-              </button>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1.2fr .8fr",
+            gap: "22px",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(255,255,255,.05)",
+              border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: "30px",
+              padding: "30px",
+              boxShadow: "0 25px 80px rgba(0,0,0,.28)",
+            }}
+          >
+            <h2
+              style={{
+                marginTop: 0,
+                fontSize: "28px",
+              }}
+            >
+              Nova automação
+            </h2>
 
-              <span>
-                Status: {rule.active ? "Ativo" : "Inativo"}
-              </span>
+            <p
+              style={{
+                color: "rgba(255,255,255,.62)",
+                marginBottom: "24px",
+              }}
+            >
+              Exemplo:
+              <br />
+              Palavra-chave: quero, preço, link
+              <br />
+              Resposta: “Te enviei no direct 😉”
+            </p>
+
+            <input
+              placeholder="Digite palavras-chave separadas por vírgula"
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
+              style={inputStyle}
+            />
+
+            <textarea
+              placeholder="Digite a resposta automática"
+              value={response}
+              onChange={(e) => setResponse(e.target.value)}
+              style={{
+                ...inputStyle,
+                minHeight: "150px",
+                resize: "vertical",
+              }}
+            />
+
+            <button
+              onClick={createRule}
+              disabled={loading}
+              style={{
+                background:
+                  "linear-gradient(90deg, #7c3aed 0%, #ec4899 100%)",
+                border: "none",
+                color: "#fff",
+                padding: "16px 24px",
+                borderRadius: "16px",
+                fontWeight: 800,
+                fontSize: "16px",
+                cursor: "pointer",
+                boxShadow: "0 10px 40px rgba(124,58,237,.45)",
+              }}
+            >
+              {loading ? "Salvando..." : "Criar automação"}
+            </button>
+          </div>
+
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(124,58,237,.24), rgba(236,72,153,.18))",
+              border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: "30px",
+              padding: "30px",
+            }}
+          >
+            <p
+              style={{
+                color: "#f0abfc",
+                fontWeight: 800,
+                marginTop: 0,
+              }}
+            >
+              RESUMO
+            </p>
+
+            <h2
+              style={{
+                fontSize: "56px",
+                margin: "0 0 10px",
+              }}
+            >
+              {rules.length}
+            </h2>
+
+            <p
+              style={{
+                color: "rgba(255,255,255,.75)",
+                fontSize: "18px",
+                lineHeight: 1.7,
+              }}
+            >
+              automações cadastradas no seu Instagram.
+            </p>
+
+            <div
+              style={{
+                marginTop: "30px",
+                display: "grid",
+                gap: "14px",
+              }}
+            >
+              <MiniCard
+                titulo="Comentários automáticos"
+                texto="Responder comentários por palavra-chave."
+              />
+
+              <MiniCard
+                titulo="DM automática"
+                texto="Responder directs automaticamente."
+              />
+
+              <MiniCard
+                titulo="Captura de leads"
+                texto="Enviar links e direcionar clientes."
+              />
             </div>
           </div>
-        ))}
-      </section>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gap: "18px",
+          }}
+        >
+          {rules.map((rule) => (
+            <div
+              key={rule.id}
+              style={{
+                background: "rgba(255,255,255,.05)",
+                border: "1px solid rgba(255,255,255,.08)",
+                borderRadius: "26px",
+                padding: "26px",
+                boxShadow: "0 20px 60px rgba(0,0,0,.22)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "20px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <p
+                    style={{
+                      color: "#f0abfc",
+                      marginTop: 0,
+                      fontWeight: 800,
+                      letterSpacing: ".04em",
+                    }}
+                  >
+                    PALAVRAS-CHAVE
+                  </p>
+
+                  <h2
+                    style={{
+                      marginTop: "6px",
+                      fontSize: "30px",
+                    }}
+                  >
+                    {rule.trigger_text}
+                  </h2>
+
+                  <div
+                    style={{
+                      marginTop: "18px",
+                      padding: "18px",
+                      borderRadius: "18px",
+                      background: "rgba(255,255,255,.04)",
+                      color: "rgba(255,255,255,.82)",
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    {rule.response_text}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() =>
+                    toggleRule(rule.id, rule.active)
+                  }
+                  style={{
+                    background: rule.active
+                      ? "rgba(34,197,94,.16)"
+                      : "rgba(239,68,68,.16)",
+                    color: rule.active ? "#4ade80" : "#ff7d7d",
+                    border: "none",
+                    borderRadius: "16px",
+                    padding: "14px 18px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    height: "fit-content",
+                    minWidth: "120px",
+                  }}
+                >
+                  {rule.active ? "ATIVO" : "INATIVO"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </main>
-  )
+  );
 }
+
+function MiniCard({
+  titulo,
+  texto,
+}: {
+  titulo: string;
+  texto: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,.05)",
+        border: "1px solid rgba(255,255,255,.08)",
+        borderRadius: "20px",
+        padding: "18px",
+      }}
+    >
+      <strong>{titulo}</strong>
+
+      <p
+        style={{
+          marginBottom: 0,
+          color: "rgba(255,255,255,.7)",
+          lineHeight: 1.6,
+        }}
+      >
+        {texto}
+      </p>
+    </div>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  marginBottom: "18px",
+  padding: "18px",
+  borderRadius: "18px",
+  border: "1px solid rgba(255,255,255,.08)",
+  background: "rgba(255,255,255,.04)",
+  color: "#fff",
+  fontSize: "16px",
+  outline: "none",
+};
