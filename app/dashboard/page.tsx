@@ -18,9 +18,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      setLoading(true);
-      setErro("");
-
       const { data, error } = await supabase
         .from("workspaces")
         .select("*")
@@ -28,7 +25,6 @@ export default function DashboardPage() {
         .maybeSingle();
 
       if (error) {
-        console.error(error);
         setErro("Não foi possível carregar os dados do workspace.");
         setLoading(false);
         return;
@@ -44,229 +40,249 @@ export default function DashboardPage() {
   const plano = workspace?.plan || "free";
 
   const expiraEm = workspace?.expires_at
-    ? new Date(workspace.expires_at).toLocaleString("pt-BR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      })
+    ? new Date(workspace.expires_at).toLocaleDateString("pt-BR")
     : "Sem data";
 
   return (
-    <div
+    <main
       style={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top right, rgba(255,0,102,0.18), transparent 20%), #070812",
+          "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 32%), radial-gradient(circle at top right, rgba(236,72,153,.28), transparent 30%), #050510",
         color: "#fff",
-        padding: "32px 20px",
+        padding: "28px",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-        }}
-      >
-        <div
+      <section style={{ maxWidth: 1180, margin: "0 auto" }}>
+        <header
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: "16px",
-            marginBottom: "28px",
-            flexWrap: "wrap",
+            marginBottom: 34,
           }}
         >
           <div>
-            <p
-              style={{
-                color: "#c13cff",
-                margin: 0,
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-              }}
-            >
-              PAINEL 67FLOW
+            <p style={{ margin: 0, color: "#e879f9", fontWeight: 800 }}>
+              67FLOW
             </p>
-            <h1 style={{ margin: "8px 0 0", fontSize: "36px", lineHeight: 1.1 }}>
-              Dashboard
+            <h1 style={{ margin: "8px 0 0", fontSize: 42 }}>
+              Painel de automações
             </h1>
+            <p style={{ color: "rgba(255,255,255,.65)", fontSize: 16 }}>
+              Responda comentários, capture leads e venda pelo Instagram.
+            </p>
           </div>
 
-          <Link
-            href="/"
-            style={{
-              textDecoration: "none",
-              color: "#fff",
-              border: "1px solid rgba(255,255,255,0.12)",
-              padding: "12px 16px",
-              borderRadius: "12px",
-              background: "rgba(255,255,255,0.04)",
-            }}
-          >
-            Voltar para a home
+          <Link href="/" style={buttonSecondary}>
+            Home
           </Link>
-        </div>
+        </header>
 
         {loading ? (
-          <div
-            style={{
-              background: "#121320",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "20px",
-              padding: "24px",
-            }}
-          >
-            Carregando dados...
-          </div>
+          <Box>Carregando painel...</Box>
         ) : erro ? (
-          <div
-            style={{
-              background: "rgba(255, 70, 70, 0.08)",
-              border: "1px solid rgba(255, 70, 70, 0.25)",
-              color: "#ff7d7d",
-              borderRadius: "20px",
-              padding: "24px",
-            }}
-          >
-            {erro}
-          </div>
+          <Box>{erro}</Box>
         ) : (
           <>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: "18px",
-                marginBottom: "22px",
+                gridTemplateColumns: "1.4fr .8fr .8fr",
+                gap: 18,
+                marginBottom: 22,
               }}
             >
-              <Card
-                titulo="Plano atual"
-                valor={plano.toUpperCase()}
-                destaque
+              <Metric
+                title="Plano atual"
+                value={plano.toUpperCase()}
+                subtitle="Conta pronta para testes"
+                highlight
               />
-              <Card
-                titulo="Expiração"
-                valor={expiraEm}
-              />
-              <Card
-                titulo="Status"
-                valor={plano === "free" ? "Conta gratuita" : "Ativa"}
+              <Metric title="Expiração" value={expiraEm} subtitle="Validade do acesso" />
+              <Metric
+                title="Status"
+                value={plano === "free" ? "Gratuita" : "Ativa"}
+                subtitle="Workspace conectado"
               />
             </div>
 
             <div
               style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "24px",
-                padding: "28px",
+                display: "grid",
+                gridTemplateColumns: "1.3fr .7fr",
+                gap: 22,
               }}
             >
-              <h2 style={{ marginTop: 0, fontSize: "26px" }}>
-                Bem-vindo ao 67Flow
-              </h2>
+              <div style={heroCard}>
+                <span style={badge}>AUTOMAÇÃO PRINCIPAL</span>
 
-              <p
-                style={{
-                  color: "rgba(255,255,255,0.78)",
-                  fontSize: "17px",
-                  lineHeight: 1.7,
-                  maxWidth: "760px",
-                }}
-              >
-                Seu painel já está conectado. Agora podemos evoluir isso para um
-                visual profissional com blocos de leads, integrações, status da
-                assinatura, automações e métricas principais.
-              </p>
+                <h2 style={{ fontSize: 34, margin: "16px 0 10px" }}>
+                  Transforme comentários em conversas no direct
+                </h2>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                  marginTop: "20px",
-                }}
-              >
-                <Botao href="/dashboard/leads" texto="Ver leads" />
-                <Botao href="/dashboard/integrations" texto="Integrações" secundario />
-                <Botao href="/dashboard/flows" texto="Fluxos" secundario />
+                <p
+                  style={{
+                    color: "rgba(255,255,255,.72)",
+                    fontSize: 17,
+                    lineHeight: 1.7,
+                    maxWidth: 720,
+                  }}
+                >
+                  Configure palavras-chave como “quero”, “preço” ou “link” e o
+                  67Flow responde automaticamente seus comentários. Quando o
+                  cliente chamar no direct, o sistema identifica a palavra-chave
+                  e prepara a resposta automática.
+                </p>
+
+                <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
+                  <Link href="/dashboard/flows" style={buttonPrimary}>
+                    Criar automação
+                  </Link>
+                  <Link href="/dashboard/integrations" style={buttonSecondary}>
+                    Ver integrações
+                  </Link>
+                </div>
               </div>
+
+              <div style={sideCard}>
+                <h3 style={{ marginTop: 0, fontSize: 24 }}>Próximos passos</h3>
+
+                <Step number="1" text="Criar palavras-chave" />
+                <Step number="2" text="Definir resposta automática" />
+                <Step number="3" text="Testar no Instagram" />
+                <Step number="4" text="Ativar cobrança mensal" />
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 18,
+                marginTop: 22,
+              }}
+            >
+              <Feature title="Comentários" text="Resposta automática por palavra-chave." />
+              <Feature title="Direct" text="Webhook de DM já recebendo mensagens." />
+              <Feature title="Vendas" text="Ideal para link, checkout e captação." />
             </div>
           </>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 
-function Card({
-  titulo,
-  valor,
-  destaque = false,
+function Metric({
+  title,
+  value,
+  subtitle,
+  highlight = false,
 }: {
-  titulo: string;
-  valor: string;
-  destaque?: boolean;
+  title: string;
+  value: string;
+  subtitle: string;
+  highlight?: boolean;
 }) {
   return (
     <div
       style={{
-        background: destaque
-          ? "linear-gradient(135deg, rgba(123,47,247,0.22), rgba(241,7,163,0.16))"
-          : "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "22px",
-        padding: "22px",
+        padding: 24,
+        borderRadius: 26,
+        background: highlight
+          ? "linear-gradient(135deg, rgba(147,51,234,.45), rgba(236,72,153,.28))"
+          : "rgba(255,255,255,.055)",
+        border: "1px solid rgba(255,255,255,.1)",
+        boxShadow: "0 20px 60px rgba(0,0,0,.28)",
       }}
     >
-      <p
-        style={{
-          margin: 0,
-          color: "rgba(255,255,255,0.65)",
-          fontSize: "14px",
-        }}
-      >
-        {titulo}
+      <p style={{ margin: 0, color: "rgba(255,255,255,.62)" }}>{title}</p>
+      <h2 style={{ margin: "10px 0 6px", fontSize: 30 }}>{value}</h2>
+      <p style={{ margin: 0, color: "rgba(255,255,255,.55)", fontSize: 14 }}>
+        {subtitle}
       </p>
-      <h3
-        style={{
-          margin: "10px 0 0",
-          fontSize: "24px",
-          lineHeight: 1.3,
-        }}
-      >
-        {valor}
-      </h3>
     </div>
   );
 }
 
-function Botao({
-  href,
-  texto,
-  secundario = false,
-}: {
-  href: string;
-  texto: string;
-  secundario?: boolean;
-}) {
+function Step({ number, text }: { number: string; text: string }) {
   return (
-    <Link
-      href={href}
-      style={{
-        textDecoration: "none",
-        padding: "12px 18px",
-        borderRadius: "12px",
-        color: "#fff",
-        background: secundario
-          ? "rgba(255,255,255,0.06)"
-          : "linear-gradient(90deg, #7b2ff7, #f107a3)",
-        border: secundario ? "1px solid rgba(255,255,255,0.08)" : "none",
-        fontWeight: 700,
-      }}
-    >
-      {texto}
-    </Link>
+    <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      <strong
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 999,
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(135deg,#7c3aed,#ec4899)",
+        }}
+      >
+        {number}
+      </strong>
+      <span style={{ color: "rgba(255,255,255,.78)" }}>{text}</span>
+    </div>
   );
 }
+
+function Feature({ title, text }: { title: string; text: string }) {
+  return (
+    <div style={smallCard}>
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <p style={{ color: "rgba(255,255,255,.65)", lineHeight: 1.6 }}>{text}</p>
+    </div>
+  );
+}
+
+function Box({ children }: { children: React.ReactNode }) {
+  return <div style={smallCard}>{children}</div>;
+}
+
+const heroCard: React.CSSProperties = {
+  padding: 34,
+  borderRadius: 30,
+  background: "rgba(255,255,255,.06)",
+  border: "1px solid rgba(255,255,255,.1)",
+  boxShadow: "0 24px 80px rgba(0,0,0,.32)",
+};
+
+const sideCard: React.CSSProperties = {
+  padding: 28,
+  borderRadius: 30,
+  background: "rgba(255,255,255,.055)",
+  border: "1px solid rgba(255,255,255,.1)",
+};
+
+const smallCard: React.CSSProperties = {
+  padding: 24,
+  borderRadius: 24,
+  background: "rgba(255,255,255,.05)",
+  border: "1px solid rgba(255,255,255,.09)",
+};
+
+const badge: React.CSSProperties = {
+  color: "#f0abfc",
+  fontWeight: 900,
+  fontSize: 13,
+  letterSpacing: ".08em",
+};
+
+const buttonPrimary: React.CSSProperties = {
+  textDecoration: "none",
+  color: "#fff",
+  padding: "14px 20px",
+  borderRadius: 16,
+  fontWeight: 800,
+  background: "linear-gradient(90deg,#7c3aed,#ec4899)",
+};
+
+const buttonSecondary: React.CSSProperties = {
+  textDecoration: "none",
+  color: "#fff",
+  padding: "14px 20px",
+  borderRadius: 16,
+  fontWeight: 700,
+  background: "rgba(255,255,255,.07)",
+  border: "1px solid rgba(255,255,255,.12)",
+};
