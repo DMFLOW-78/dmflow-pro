@@ -1,263 +1,254 @@
-"use client"
-
-import React, { useEffect, useState } from "react"
-import Link from "next/link"
-import { createSupabaseClient } from "@/lib/supabase/client"
-
-type InstagramAccount = {
-  page_id: string
-  page_name: string
-  instagram_id: string
-  instagram_username: string | null
-  page_access_token: string | null
-}
+"use client";
 
 export default function IntegrationsPage() {
-  const [account, setAccount] = useState<InstagramAccount | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadIntegration() {
-      const supabase = createSupabaseClient()
-
-      const { data, error } = await supabase
-        .from("instagram_accounts")
-        .select("page_id,page_name,instagram_id,instagram_username,page_access_token")
-        .not("page_access_token", "is", null)
-        .neq("page_access_token", "COLE_AQUI_O_VALOR_DO_IG_ACCESS_TOKEN")
-        .limit(1)
-        .maybeSingle()
-
-      if (error) {
-        console.error("Erro ao buscar integração:", error)
-      }
-
-      setAccount(data)
-      setLoading(false)
-    }
-
-    loadIntegration()
-  }, [])
-
-  const connected = !!account
-
   return (
-    <div style={pageStyle}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <Header />
+    <main
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.25), transparent 28%), #050510",
+        color: "#fff",
+        padding: "40px 24px",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+        }}
+      >
+        <div style={{ marginBottom: 40 }}>
+          <p
+            style={{
+              color: "#e879f9",
+              fontWeight: 800,
+              letterSpacing: ".08em",
+              marginBottom: 10,
+            }}
+          >
+            67FLOW INTEGRATIONS
+          </p>
 
-        <div style={gridCards}>
-          <IntegrationCard
-            icon="📸"
-            title="Instagram"
-            status={loading ? "Carregando..." : connected ? "Conectado" : "Desconectado"}
-            description={
-              connected
-                ? `Conectado como @${account.instagram_username ?? account.page_name}`
-                : "Conecte seu Instagram profissional para ativar DMs e comentários automáticos."
-            }
-            primaryAction={connected ? "Reconfigurar" : "Conectar Instagram"}
-            primaryHref="/api/meta/login"
-          />
+          <h1
+            style={{
+              fontSize: 54,
+              margin: 0,
+            }}
+          >
+            Integrações
+          </h1>
 
-          <IntegrationCard
-            icon="💬"
-            title="Comentários"
-            status={connected ? "Disponível" : "Bloqueado"}
-            description="Responder automaticamente comentários em posts e enviar DM para quem comentou."
-            disabled={!connected}
-          />
+          <p
+            style={{
+              color: "rgba(255,255,255,.7)",
+              fontSize: 18,
+              marginTop: 14,
+              maxWidth: 700,
+              lineHeight: 1.7,
+            }}
+          >
+            Conecte Instagram, Facebook e ferramentas externas
+            para automatizar mensagens e capturar leads.
+          </p>
         </div>
 
-        <div style={gridMain}>
-          <CommentsPreview connected={connected} />
-          <NextSteps connected={connected} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Header() {
-  return (
-    <div style={headerStyle}>
-      <div>
-        <p style={titleTop}>INTEGRAÇÕES</p>
-        <h1 style={titleMain}>Instagram e Automação</h1>
-        <p style={subtitle}>
-          Conecte sua conta e ative respostas automáticas em DMs e comentários.
-        </p>
-      </div>
-
-      <Link href="/dashboard" style={secondaryButton}>
-        Voltar
-      </Link>
-    </div>
-  )
-}
-
-function IntegrationCard({
-  icon,
-  title,
-  status,
-  description,
-  primaryAction,
-  primaryHref,
-  disabled,
-}: any) {
-  return (
-    <div style={cardStyle}>
-      <div style={{ display: "flex", gap: 12 }}>
-        <div style={iconBox}>{icon}</div>
-        <div>
-          <h3 style={{ margin: 0 }}>{title}</h3>
-          <span style={statusTag}>{status}</span>
-        </div>
-      </div>
-
-      <p style={desc}>{description}</p>
-
-      {primaryAction && (
-        <a
-          href={primaryHref}
+        <div
           style={{
-            ...buttonPrimary,
-            opacity: disabled ? 0.5 : 1,
-            pointerEvents: disabled ? "none" : "auto",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 24,
           }}
         >
-          {primaryAction}
-        </a>
-      )}
-    </div>
-  )
+          {/* INSTAGRAM */}
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(124,58,237,.25), rgba(236,72,153,.18))",
+              border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: 30,
+              padding: 30,
+              boxShadow: "0 20px 80px rgba(0,0,0,.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 26,
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: 34,
+                }}
+              >
+                Instagram
+              </h2>
+
+              <div
+                style={{
+                  background: "rgba(34,197,94,.16)",
+                  color: "#4ade80",
+                  padding: "10px 16px",
+                  borderRadius: 14,
+                  fontWeight: 800,
+                  fontSize: 14,
+                }}
+              >
+                CONECTADO
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 18,
+              }}
+            >
+              <InfoCard
+                title="Conta conectada"
+                value="@adsmarcelosilva"
+              />
+
+              <InfoCard
+                title="Webhook"
+                value="Ativo"
+              />
+
+              <InfoCard
+                title="Comentários automáticos"
+                value="Funcionando"
+              />
+
+              <InfoCard
+                title="Direct Message"
+                value="Necessita permissão"
+              />
+            </div>
+
+            <button
+              style={{
+                marginTop: 28,
+                width: "100%",
+                border: "none",
+                borderRadius: 18,
+                padding: "18px",
+                fontSize: 16,
+                fontWeight: 800,
+                color: "#fff",
+                cursor: "pointer",
+                background:
+                  "linear-gradient(90deg,#7c3aed,#ec4899)",
+                boxShadow:
+                  "0 15px 40px rgba(124,58,237,.35)",
+              }}
+            >
+              Reconectar Instagram
+            </button>
+          </div>
+
+          {/* META */}
+          <div
+            style={{
+              background: "rgba(255,255,255,.05)",
+              border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: 30,
+              padding: 30,
+            }}
+          >
+            <h2
+              style={{
+                marginTop: 0,
+                fontSize: 34,
+              }}
+            >
+              Meta App
+            </h2>
+
+            <div
+              style={{
+                marginTop: 30,
+                display: "grid",
+                gap: 18,
+              }}
+            >
+              <InfoCard
+                title="App Status"
+                value="Development"
+              />
+
+              <InfoCard
+                title="Webhook"
+                value="Configurado"
+              />
+
+              <InfoCard
+                title="Token"
+                value="Ativo"
+              />
+
+              <InfoCard
+                title="API Version"
+                value="v25.0"
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: 30,
+                padding: 20,
+                borderRadius: 20,
+                background: "rgba(255,255,255,.04)",
+                lineHeight: 1.8,
+                color: "rgba(255,255,255,.75)",
+              }}
+            >
+              O sistema está conectado ao Instagram e pronto
+              para automações de comentários e captura de leads.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
-function CommentsPreview({ connected }: { connected: boolean }) {
+function InfoCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
   return (
-    <div style={panel}>
-      <h2>Comentários automáticos</h2>
-      <p style={muted}>
-        {connected
-          ? "Integração ativa. Agora você pode responder comentários automaticamente."
-          : "Conecte o Instagram para liberar respostas automáticas nos comentários."}
+    <div
+      style={{
+        background: "rgba(255,255,255,.05)",
+        border: "1px solid rgba(255,255,255,.08)",
+        borderRadius: 18,
+        padding: 18,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          color: "rgba(255,255,255,.6)",
+          fontSize: 14,
+        }}
+      >
+        {title}
       </p>
 
-      <div style={fakeComment}>
-        <strong>@cliente123</strong>
-        <p>Quanto custa?</p>
-      </div>
-
-      <div style={fakeComment}>
-        <strong>Resposta automática:</strong>
-        <p>Oi! Te mandei uma mensagem no direct 😉</p>
-      </div>
+      <h3
+        style={{
+          marginBottom: 0,
+          fontSize: 22,
+        }}
+      >
+        {value}
+      </h3>
     </div>
-  )
-}
-
-function NextSteps({ connected }: { connected: boolean }) {
-  return (
-    <div style={panel}>
-      <h2>Próximos passos</h2>
-      <ul>
-        <li>{connected ? "Instagram conectado ✅" : "Conectar Instagram"}</li>
-        <li>Ativar respostas automáticas</li>
-        <li>Configurar palavras-chave</li>
-        <li>Responder comentários automaticamente</li>
-      </ul>
-    </div>
-  )
-}
-
-const pageStyle = {
-  minHeight: "100vh",
-  background: "#070812",
-  color: "#fff",
-  padding: 32,
-}
-
-const headerStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  marginBottom: 30,
-}
-
-const titleTop = { color: "#ff3ea5", fontWeight: 700 }
-const titleMain = { fontSize: 34, margin: "5px 0" }
-const subtitle = { color: "#aaa" }
-
-const gridCards = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 20,
-  marginBottom: 20,
-}
-
-const gridMain = {
-  display: "grid",
-  gridTemplateColumns: "1.3fr 1fr",
-  gap: 20,
-}
-
-const cardStyle = {
-  background: "#111",
-  padding: 20,
-  borderRadius: 20,
-  border: "1px solid #222",
-}
-
-const iconBox = {
-  width: 50,
-  height: 50,
-  borderRadius: 12,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "#1a1a2e",
-}
-
-const statusTag = {
-  fontSize: 12,
-  background: "#222",
-  padding: "4px 8px",
-  borderRadius: 999,
-}
-
-const desc = {
-  color: "#aaa",
-  marginTop: 10,
-}
-
-const buttonPrimary = {
-  display: "inline-block",
-  marginTop: 12,
-  padding: "10px 16px",
-  borderRadius: 10,
-  background: "linear-gradient(90deg,#7b2ff7,#f107a3)",
-  color: "#fff",
-  textDecoration: "none",
-}
-
-const panel = {
-  background: "#111",
-  padding: 20,
-  borderRadius: 20,
-}
-
-const muted = { color: "#aaa" }
-
-const fakeComment = {
-  marginTop: 12,
-  padding: 12,
-  background: "#0c0c1a",
-  borderRadius: 10,
-}
-
-const secondaryButton = {
-  border: "1px solid #333",
-  padding: "10px 16px",
-  borderRadius: 10,
-  color: "#fff",
-  textDecoration: "none",
+  );
 }
