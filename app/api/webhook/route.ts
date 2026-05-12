@@ -45,6 +45,9 @@ async function sendInstagramDM(
 ) {
   const token = process.env.DM_ACCESS_TOKEN?.trim();
 
+  console.log("🔐 DM TOKEN PREFIX:", token?.slice(0, 3));
+  console.log("🔐 DM TOKEN LENGTH:", token?.length);
+
   if (!token) {
     console.error("❌ DM_ACCESS_TOKEN ausente");
     return;
