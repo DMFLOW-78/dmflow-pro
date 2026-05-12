@@ -22,9 +22,7 @@ async function sendCommentReply(commentId: string, message: string) {
     `https://graph.facebook.com/v21.0/${commentId}/replies`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message,
         access_token: token,
@@ -40,6 +38,44 @@ async function sendCommentReply(commentId: string, message: string) {
   return data;
 }
 
+async function sendInstagramDM(
+  instagramAccountId: string,
+  recipientId: string,
+  message: string
+) {
+  const token = process.env.PAGE_ACCESS_TOKEN?.trim();
+
+  if (!token) {
+    console.error("❌ PAGE_ACCESS_TOKEN ausente");
+    return;
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v21.0/${instagramAccountId}/messages?access_token=${encodeURIComponent(
+      token
+    )}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: {
+          id: recipientId,
+        },
+        message: {
+          text: message,
+        },
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  console.log("📨 RESPOSTA DM:");
+  console.log(JSON.stringify(data, null, 2));
+
+  return data;
+}
+
 function getKeywords(rule: any): string[] {
   return String(rule.trigger_text || "")
     .split(",")
@@ -49,6 +85,116 @@ function getKeywords(rule: any): string[] {
 
 function getResponseText(rule: any): string {
   return String(rule.response_text || "").trim();
+}
+
+async function findMatchingRule(accountId: string, text: string) {
+  const { data: rules, error } = await supabase
+    .from("automation_rules")
+    .select("*")
+    .eq("active", true)
+    .eq("account_id", accountId);
+
+  if (error) {
+    console.log("❌ ERRO SUPABASE:", error);
+    return null;
+  }
+
+  console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
+
+  for (const rule of rules || []) {
+    const keywords = getKeywords(rule);
+
+    console.log("🔎 TESTANDO REGRA:", keywords);
+
+    if (keywords.length === 0) continue;
+
+    const matchedKeyword = keywords.find((keyword) =>
+      text.includes(keyword)
+    );
+
+    if (!matchedKeyword) continue;
+
+    console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
+
+    const responseText = getResponseText(rule);
+
+    if (!responseText) {
+      console.log("⚠️ Regra sem resposta.");
+      return null;
+    }
+
+    return responseText;
+  }
+
+  return null;
+}
+
+async function handleComment(entry: any, change: any) {
+  const instagramAccountId = entry.id;
+
+  const commentText = String(change.value?.text || "")
+    .toLowerCase()
+    .trim();
+
+  const commentId = change.value?.id;
+  const username = change.value?.from?.username;
+
+  console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
+  console.log("🆔 COMMENT ID:", commentId);
+  console.log("👤 AUTOR:", username);
+  console.log("🏢 ACCOUNT:", instagramAccountId);
+
+  if (!instagramAccountId || !commentId || !commentText) {
+    console.log("⚠️ Comentário inválido. Ignorando.");
+    return;
+  }
+
+  const responseText = await findMatchingRule(
+    instagramAccountId,
+    commentText
+  );
+
+  if (!responseText) return;
+
+  await sendCommentReply(commentId, responseText);
+
+  console.log("📩 Private Reply desativado temporariamente.");
+}
+
+async function handleDM(entry: any, messaging: any) {
+  const instagramAccountId = entry.id;
+
+  const senderId = messaging.sender?.id;
+  const messageText = String(messaging.message?.text || "")
+    .toLowerCase()
+    .trim();
+
+  console.log("📥 DM RECEBIDA:", messageText);
+  console.log("👤 SENDER ID:", senderId);
+  console.log("🏢 ACCOUNT:", instagramAccountId);
+
+  if (!instagramAccountId || !senderId || !messageText) {
+    console.log("⚠️ DM inválida. Ignorando.");
+    return;
+  }
+
+  if (senderId === instagramAccountId) {
+    console.log("⚠️ Mensagem enviada pela própria conta. Ignorando.");
+    return;
+  }
+
+  const responseText = await findMatchingRule(
+    instagramAccountId,
+    messageText
+  );
+
+  if (!responseText) return;
+
+  await sendInstagramDM(
+    instagramAccountId,
+    senderId,
+    responseText
+  );
 }
 
 export async function GET(req: Request) {
@@ -80,74 +226,14 @@ export async function POST(req: Request) {
     }
 
     for (const entry of body.entry || []) {
-      const instagramAccountId = entry.id;
-
       for (const change of entry.changes || []) {
-        if (change.field !== "comments") continue;
-
-        const commentText = String(change.value?.text || "")
-          .toLowerCase()
-          .trim();
-
-        const commentId = change.value?.id;
-        const username = change.value?.from?.username;
-
-        console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
-        console.log("🆔 COMMENT ID:", commentId);
-        console.log("👤 AUTOR:", username);
-        console.log("🏢 ACCOUNT:", instagramAccountId);
-
-        if (!instagramAccountId || !commentId || !commentText) {
-          console.log("⚠️ Comentário sem account, ID ou texto. Ignorando.");
-          continue;
+        if (change.field === "comments") {
+          await handleComment(entry, change);
         }
+      }
 
-        const { data: rules, error } = await supabase
-          .from("automation_rules")
-          .select("*")
-          .eq("active", true)
-          .eq("account_id", instagramAccountId);
-
-        if (error) {
-          console.log("❌ ERRO SUPABASE:", error);
-          continue;
-        }
-
-        console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
-
-        for (const rule of rules || []) {
-          const keywords = getKeywords(rule);
-
-          console.log("🔎 TESTANDO REGRA:", keywords);
-
-          if (keywords.length === 0) {
-            console.log("⚠️ Regra sem palavra-chave. Ignorando.");
-            continue;
-          }
-
-          const matchedKeyword = keywords.find((keyword) =>
-            commentText.includes(keyword)
-          );
-
-          if (!matchedKeyword) continue;
-
-          console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
-
-          const responseText = getResponseText(rule);
-
-          console.log("📝 RESPONSE_TEXT existe?", Boolean(responseText));
-
-          if (!responseText) {
-            console.log("⚠️ Regra sem resposta. Ignorando.");
-            break;
-          }
-
-          await sendCommentReply(commentId, responseText);
-
-          console.log("📩 Private Reply desativado temporariamente.");
-
-          break;
-        }
+      for (const messaging of entry.messaging || []) {
+        await handleDM(entry, messaging);
       }
     }
 
