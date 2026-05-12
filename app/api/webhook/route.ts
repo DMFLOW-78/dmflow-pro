@@ -40,51 +40,6 @@ async function sendCommentReply(commentId: string, message: string) {
   return data;
 }
 
-async function sendPrivateReply(
-  instagramAccountId: string,
-  commentId: string,
-  message: string
-) {
-  console.log(
-    "🚀 PRIVATE REPLY ENDPOINT ACCOUNT:", 
-    instagramAccountId
-  );
-
-  const token = process.env.PAGE_ACCESS_TOKEN?.trim();
-
-  if (!token) {
-    console.error("❌ PAGE_ACCESS_TOKEN ausente");
-    return;
-  }
-
-  const response = await fetch(
-    `https://graph.facebook.com/v21.0/${instagramAccountId}/messages?access_token=${encodeURIComponent(
-      token
-    )}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        recipient: {
-          comment_id: commentId,
-        },
-        message: {
-          text: message,
-        },
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  console.log("📩 PRIVATE REPLY:");
-  console.log(JSON.stringify(data, null, 2));
-
-  return data;
-}
-
 function getKeywords(rule: any): string[] {
   return String(rule.trigger_text || "")
     .split(",")
@@ -188,11 +143,8 @@ export async function POST(req: Request) {
           }
 
           await sendCommentReply(commentId, responseText);
-          await sendPrivateReply(
-            instagramAccountId,
-            commentId,
-            responseText
-          );
+
+          console.log("📩 Private Reply desativado temporariamente.");
 
           break;
         }
