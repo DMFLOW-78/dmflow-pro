@@ -10,6 +10,35 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN!;
 
+async function saveLead({
+  username,
+  userId,
+  source,
+  message,
+  triggerUsed,
+}: {
+  username?: string;
+  userId?: string;
+  source: "comment" | "dm";
+  message: string;
+  triggerUsed?: string;
+}) {
+  const { error } = await supabase.from("leads").insert({
+    username: username || null,
+    user_id: userId || null,
+    source,
+    message,
+    trigger_used: triggerUsed || null,
+  });
+
+  if (error) {
+    console.log("❌ ERRO AO SALVAR LEAD:", error);
+    return;
+  }
+
+  console.log("✅ LEAD SALVO:", source, userId || username);
+}
+
 async function sendCommentReply(commentId: string, message: string) {
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
@@ -126,7 +155,10 @@ async function findMatchingRule(accountId: string, text: string) {
       return null;
     }
 
-    return responseText;
+    return {
+      responseText,
+      matchedKeyword,
+    };
   }
 
   return null;
@@ -140,6 +172,7 @@ async function handleComment(entry: any, change: any) {
     .trim();
 
   const commentId = change.value?.id;
+  const userId = change.value?.from?.id;
   const username = change.value?.from?.username;
 
   console.log("💬 COMENTÁRIO RECEBIDO:", commentText);
@@ -152,14 +185,19 @@ async function handleComment(entry: any, change: any) {
     return;
   }
 
-  const responseText = await findMatchingRule(
-    instagramAccountId,
-    commentText
-  );
+  const match = await findMatchingRule(instagramAccountId, commentText);
 
-  if (!responseText) return;
+  await saveLead({
+    username,
+    userId,
+    source: "comment",
+    message: commentText,
+    triggerUsed: match?.matchedKeyword,
+  });
 
-  await sendCommentReply(commentId, responseText);
+  if (!match) return;
+
+  await sendCommentReply(commentId, match.responseText);
 
   console.log("📩 Private Reply desativado temporariamente.");
 }
@@ -186,17 +224,21 @@ async function handleDM(entry: any, messaging: any) {
     return;
   }
 
-  const responseText = await findMatchingRule(
-    instagramAccountId,
-    messageText
-  );
+  const match = await findMatchingRule(instagramAccountId, messageText);
 
-  if (!responseText) return;
+  await saveLead({
+    userId: senderId,
+    source: "dm",
+    message: messageText,
+    triggerUsed: match?.matchedKeyword,
+  });
+
+  if (!match) return;
 
   await sendInstagramDM(
     instagramAccountId,
     senderId,
-    responseText
+    match.responseText
   );
 }
 
