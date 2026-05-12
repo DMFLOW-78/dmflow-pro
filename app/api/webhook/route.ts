@@ -43,10 +43,10 @@ async function sendInstagramDM(
   recipientId: string,
   message: string
 ) {
-  const token = process.env.PAGE_ACCESS_TOKEN?.trim();
+  const token = process.env.DM_ACCESS_TOKEN?.trim();
 
   if (!token) {
-    console.error("❌ PAGE_ACCESS_TOKEN ausente");
+    console.error("❌ DM_ACCESS_TOKEN ausente");
     return;
   }
 
