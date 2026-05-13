@@ -73,9 +73,33 @@ export default function SettingsPage() {
     );
   }
 
+  async function handleUpgrade() {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/checkout", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.init_point) {
+        window.location.href = data.init_point;
+        return;
+      }
+
+      setMessage(data.error || "Não foi possível abrir o checkout.");
+    } catch {
+      setMessage("Erro ao conectar com o checkout.");
+    }
+
+    setLoading(false);
+  }
+
   async function logout() {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/login";
   }
 
   return (
@@ -113,9 +137,10 @@ export default function SettingsPage() {
 
             <button
               style={upgradeButton}
-              onClick={() => alert("Checkout Mercado Pago será conectado no próximo passo.")}
+              onClick={handleUpgrade}
+              disabled={loading}
             >
-              Fazer upgrade
+              {loading ? "Abrindo checkout..." : "Fazer upgrade"}
             </button>
           </div>
         </div>
@@ -133,9 +158,9 @@ export default function SettingsPage() {
 
             <ActionCard
               title="E-mail"
-              text="Verificação de e-mail será obrigatória no cadastro."
-              button="Ver status"
-              onClick={() => setMessage("Verificação de e-mail adicionada à lista do projeto.")}
+              text="Verificação de e-mail obrigatória no cadastro."
+              button="Verificado"
+              onClick={() => setMessage("E-mail confirmado e protegido.")}
             />
 
             <ActionCard
@@ -165,7 +190,13 @@ function Input({
 }) {
   return (
     <div style={{ marginBottom: 18 }}>
-      <p style={{ marginBottom: 10, color: "rgba(255,255,255,.7)", fontWeight: 700 }}>
+      <p
+        style={{
+          marginBottom: 10,
+          color: "rgba(255,255,255,.7)",
+          fontWeight: 700,
+        }}
+      >
         {label}
       </p>
 
@@ -178,7 +209,9 @@ function Input({
           padding: "18px",
           borderRadius: 18,
           border: "1px solid rgba(255,255,255,.08)",
-          background: disabled ? "rgba(255,255,255,.025)" : "rgba(255,255,255,.05)",
+          background: disabled
+            ? "rgba(255,255,255,.025)"
+            : "rgba(255,255,255,.05)",
           color: "#fff",
           fontSize: 16,
           outline: "none",
@@ -220,10 +253,28 @@ const pageStyle: React.CSSProperties = {
   padding: "40px 28px",
 };
 
-const eyebrow = { color: "#e879f9", fontWeight: 900, letterSpacing: ".08em" };
-const title = { margin: 0, fontSize: 52 };
-const subtitle = { color: "rgba(255,255,255,.7)", fontSize: 18, lineHeight: 1.7 };
-const grid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 };
+const eyebrow: React.CSSProperties = {
+  color: "#e879f9",
+  fontWeight: 900,
+  letterSpacing: ".08em",
+};
+
+const title: React.CSSProperties = {
+  margin: 0,
+  fontSize: 52,
+};
+
+const subtitle: React.CSSProperties = {
+  color: "rgba(255,255,255,.7)",
+  fontSize: 18,
+  lineHeight: 1.7,
+};
+
+const grid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 24,
+};
 
 const card: React.CSSProperties = {
   background: "rgba(255,255,255,.05)",
@@ -232,17 +283,29 @@ const card: React.CSSProperties = {
   padding: 30,
 };
 
-const cardTitle = { marginTop: 0, fontSize: 34 };
+const cardTitle: React.CSSProperties = {
+  marginTop: 0,
+  fontSize: 34,
+};
 
 const planBox: React.CSSProperties = {
-  background: "linear-gradient(135deg, rgba(124,58,237,.22), rgba(236,72,153,.18))",
+  background:
+    "linear-gradient(135deg, rgba(124,58,237,.22), rgba(236,72,153,.18))",
   borderRadius: 24,
   padding: 24,
   marginBottom: 24,
 };
 
-const planLabel = { margin: 0, color: "#f0abfc", fontWeight: 900 };
-const muted = { color: "rgba(255,255,255,.7)", lineHeight: 1.7 };
+const planLabel: React.CSSProperties = {
+  margin: 0,
+  color: "#f0abfc",
+  fontWeight: 900,
+};
+
+const muted: React.CSSProperties = {
+  color: "rgba(255,255,255,.7)",
+  lineHeight: 1.7,
+};
 
 const primaryButton: React.CSSProperties = {
   width: "100%",
@@ -266,7 +329,7 @@ const dangerButton: React.CSSProperties = {
   border: "1px solid rgba(239,68,68,.3)",
 };
 
-const securityGrid = {
+const securityGrid: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(3, 1fr)",
   gap: 18,
