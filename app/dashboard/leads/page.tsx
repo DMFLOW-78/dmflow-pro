@@ -5,13 +5,17 @@ import { createSupabaseClient } from "@/lib/supabase/client";
 
 type Lead = {
   id: string;
-  username: string | null;
-  user_id: string | null;
-  source: string | null;
-  message: string | null;
-  trigger_used: string | null;
-  status: string | null;
-  created_at: string | null;
+  workspace_id?: string | null;
+  platform_user_id?: string | null;
+  user_id?: string | null;
+  name?: string | null;
+  username?: string | null;
+  source?: string | null;
+  tag?: string | null;
+  status?: string | null;
+  message?: string | null;
+  trigger_used?: string | null;
+  created_at?: string | null;
 };
 
 export default function LeadsPage() {
@@ -20,19 +24,26 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
 
   async function loadLeads() {
     setLoading(true);
+    setErro("");
 
     const { data, error } = await supabase
       .from("leads")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error) {
-      setLeads(data || []);
+    if (error) {
+      console.log("Erro ao carregar leads:", error);
+      setErro("Não foi possível carregar os leads.");
+      setLeads([]);
+      setLoading(false);
+      return;
     }
 
+    setLeads(data || []);
     setLoading(false);
   }
 
@@ -45,22 +56,47 @@ export default function LeadsPage() {
     await loadLeads();
   }
 
+  function normalize(value?: string | null) {
+    return String(value || "").toLowerCase();
+  }
+
+  function getLeadName(lead: Lead) {
+    return (
+      lead.username ||
+      lead.name ||
+      lead.platform_user_id ||
+      lead.user_id ||
+      "Usuário sem nome"
+    );
+  }
+
+  function getLeadTrigger(lead: Lead) {
+    return lead.trigger_used || lead.tag || "sem match";
+  }
+
+  function getLeadStatus(lead: Lead) {
+    return normalize(lead.status || "novo");
+  }
+
   const filtered = leads.filter((lead) => {
     const term = search.toLowerCase();
 
     return (
-      lead.username?.toLowerCase().includes(term) ||
-      lead.user_id?.toLowerCase().includes(term) ||
-      lead.message?.toLowerCase().includes(term) ||
-      lead.trigger_used?.toLowerCase().includes(term) ||
-      lead.status?.toLowerCase().includes(term)
+      normalize(lead.username).includes(term) ||
+      normalize(lead.name).includes(term) ||
+      normalize(lead.platform_user_id).includes(term) ||
+      normalize(lead.user_id).includes(term) ||
+      normalize(lead.message).includes(term) ||
+      normalize(lead.trigger_used).includes(term) ||
+      normalize(lead.tag).includes(term) ||
+      normalize(lead.status).includes(term)
     );
   });
 
   const total = leads.length;
-  const novos = leads.filter((lead) => (lead.status || "novo") === "novo").length;
-  const quentes = leads.filter((lead) => lead.status === "quente").length;
-  const clientes = leads.filter((lead) => lead.status === "cliente").length;
+  const novos = leads.filter((lead) => getLeadStatus(lead) === "novo").length;
+  const quentes = leads.filter((lead) => getLeadStatus(lead) === "quente").length;
+  const clientes = leads.filter((lead) => getLeadStatus(lead) === "cliente").length;
 
   return (
     <main style={pageStyle}>
@@ -72,6 +108,8 @@ export default function LeadsPage() {
         <p style={subtitle}>
           Pessoas que comentaram ou chamaram no direct.
         </p>
+
+        {erro && <div style={errorBox}>{erro}</div>}
 
         <div style={topGrid}>
           <input
@@ -92,11 +130,13 @@ export default function LeadsPage() {
         </div>
 
         {filtered.length === 0 ? (
-          <div style={emptyBox}>Nenhum lead encontrado.</div>
+          <div style={emptyBox}>
+            {loading ? "Carregando leads..." : "Nenhum lead encontrado."}
+          </div>
         ) : (
           <div style={{ display: "grid", gap: "18px" }}>
             {filtered.map((lead) => {
-              const status = lead.status || "novo";
+              const status = getLeadStatus(lead);
 
               return (
                 <div key={lead.id} style={card}>
@@ -119,9 +159,9 @@ export default function LeadsPage() {
                         }}
                       >
                         <strong style={{ fontSize: "22px" }}>
-                          {lead.username
-                            ? `@${lead.username}`
-                            : lead.user_id || "Usuário sem nome"}
+                          {getLeadName(lead).startsWith("@")
+                            ? getLeadName(lead)
+                            : `@${getLeadName(lead)}`}
                         </strong>
 
                         <span style={sourceBadge}>
@@ -138,7 +178,7 @@ export default function LeadsPage() {
                       </div>
 
                       <p style={triggerText}>
-                        Gatilho: {lead.trigger_used || "sem match"}
+                        Gatilho: {getLeadTrigger(lead)}
                       </p>
 
                       <div style={actionsGrid}>
@@ -351,6 +391,16 @@ const emptyBox: React.CSSProperties = {
   borderRadius: "26px",
   padding: "30px",
   color: "rgba(255,255,255,.72)",
+};
+
+const errorBox: React.CSSProperties = {
+  background: "rgba(239,68,68,.14)",
+  color: "#ff7d7d",
+  border: "1px solid rgba(239,68,68,.22)",
+  padding: "18px",
+  borderRadius: "18px",
+  marginBottom: "24px",
+  fontWeight: 800,
 };
 
 const card: React.CSSProperties = {
