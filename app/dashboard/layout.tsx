@@ -25,7 +25,7 @@ export default function DashboardLayout({
         </p>
 
         <nav style={{ display: "grid", gap: 12 }}>
-          <MenuItem href="/dashboard" text="Dashboard" />
+          <MenuItem href="/dashboard" text="Painel" />
           <MenuItem href="/dashboard/leads" text="Leads" />
           <MenuItem href="/dashboard/flows" text="Fluxos" />
           <MenuItem href="/dashboard/integrations" text="Integrações" />
