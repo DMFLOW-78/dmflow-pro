@@ -33,10 +33,10 @@ export default function DashboardLayout({
         </nav>
 
         <div style={{ marginTop: 40 }}>
-          <Link href="/" style={logoutStyle}>
-            Sair
-          </Link>
-        </div>
+  <Link href="/logout" style={logoutStyle}>
+    Sair
+  </Link>
+</div>
       </aside>
 
       <section style={{ flex: 1 }}>{children}</section>
