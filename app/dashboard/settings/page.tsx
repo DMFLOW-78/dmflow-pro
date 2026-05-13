@@ -1,171 +1,149 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { createSupabaseClient } from "@/lib/supabase/client";
+
 export default function SettingsPage() {
+  const supabase = useMemo(() => createSupabaseClient(), []);
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    async function loadData() {
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (userData.user?.email) {
+        setEmail(userData.user.email);
+      }
+
+      const { data: workspace } = await supabase
+        .from("workspaces")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
+      if (workspace) {
+        setName(workspace.name || "Marcelo Rebola");
+        setInstagram(workspace.instagram_username || "@adsmarcelosilva");
+      }
+    }
+
+    loadData();
+  }, [supabase]);
+
+  async function saveProfile() {
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("workspaces")
+      .update({
+        name,
+        instagram_username: instagram,
+      })
+      .limit(1);
+
+    if (error) {
+      setMessage("Erro ao salvar alterações.");
+    } else {
+      setMessage("Alterações salvas com sucesso.");
+    }
+
+    setLoading(false);
+  }
+
+  async function sendPasswordReset() {
+    if (!email) {
+      setMessage("E-mail não encontrado.");
+      return;
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setMessage(
+      error
+        ? "Erro ao enviar recuperação de senha."
+        : "Link de recuperação enviado para seu e-mail."
+    );
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.22), transparent 28%), #050510",
-        color: "#fff",
-        padding: "40px 28px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-        }}
-      >
-        <div style={{ marginBottom: 36 }}>
-          <p
-            style={{
-              color: "#e879f9",
-              fontWeight: 900,
-              letterSpacing: ".08em",
-              marginBottom: 10,
-            }}
-          >
-            67FLOW SETTINGS
-          </p>
+    <main style={pageStyle}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        <p style={eyebrow}>67FLOW SETTINGS</p>
+        <h1 style={title}>Configurações</h1>
+        <p style={subtitle}>
+          Gerencie sua conta, integração com Instagram e segurança.
+        </p>
 
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 52,
-            }}
-          >
-            Configurações
-          </h1>
+        {message && <div style={alertBox}>{message}</div>}
 
-          <p
-            style={{
-              color: "rgba(255,255,255,.7)",
-              fontSize: 18,
-              lineHeight: 1.7,
-              marginTop: 14,
-              maxWidth: 760,
-            }}
-          >
-            Gerencie sua conta, integração com Instagram e segurança do seu
-            workspace.
-          </p>
-        </div>
+        <div style={grid}>
+          <div style={card}>
+            <h2 style={cardTitle}>Perfil</h2>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 24,
-          }}
-        >
-          {/* PERFIL */}
-          <div style={cardStyle}>
-            <h2 style={titleStyle}>Perfil</h2>
+            <Input label="Nome" value={name} onChange={setName} />
+            <Input label="E-mail" value={email} onChange={setEmail} disabled />
+            <Input label="Instagram" value={instagram} onChange={setInstagram} />
 
-            <div style={{ display: "grid", gap: 18 }}>
-              <Input
-                label="Nome"
-                value="Marcelo Rebola"
-              />
-
-              <Input
-                label="E-mail"
-                value="marcelo@email.com"
-              />
-
-              <Input
-                label="Instagram"
-                value="@adsmarcelosilva"
-              />
-            </div>
-
-            <button style={primaryButton}>
-              Salvar alterações
+            <button onClick={saveProfile} disabled={loading} style={primaryButton}>
+              {loading ? "Salvando..." : "Salvar alterações"}
             </button>
           </div>
 
-          {/* PLANO */}
-          <div style={cardStyle}>
-            <h2 style={titleStyle}>Plano atual</h2>
+          <div style={card}>
+            <h2 style={cardTitle}>Plano atual</h2>
 
             <div style={planBox}>
-              <p
-                style={{
-                  margin: 0,
-                  color: "#f0abfc",
-                  fontWeight: 800,
-                  letterSpacing: ".05em",
-                }}
-              >
-                PLANO FREE
-              </p>
-
-              <h3
-                style={{
-                  marginBottom: 0,
-                  fontSize: 42,
-                }}
-              >
-                Gratuito
-              </h3>
-
-              <p
-                style={{
-                  color: "rgba(255,255,255,.7)",
-                  lineHeight: 1.7,
-                }}
-              >
-                Ideal para testes e primeiros leads.
-              </p>
+              <p style={planLabel}>PLANO FREE</p>
+              <h3 style={{ fontSize: 42, margin: "10px 0" }}>Gratuito</h3>
+              <p style={muted}>Ideal para testes e primeiros leads.</p>
             </div>
 
-            <div style={{ display: "grid", gap: 14 }}>
-              <PlanItem text="Comentários automáticos" />
-              <PlanItem text="Captura de leads" />
-              <PlanItem text="CRM básico" />
-              <PlanItem text="Integração Instagram" />
-            </div>
-
-            <button style={upgradeButton}>
+            <button
+              style={upgradeButton}
+              onClick={() => alert("Checkout Mercado Pago será conectado no próximo passo.")}
+            >
               Fazer upgrade
             </button>
           </div>
         </div>
 
-        {/* SEGURANÇA */}
-        <div
-          style={{
-            marginTop: 24,
-            ...cardStyle,
-          }}
-        >
-          <h2 style={titleStyle}>Segurança</h2>
+        <div style={{ ...card, marginTop: 24 }}>
+          <h2 style={cardTitle}>Segurança</h2>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr",
-              gap: 18,
-              marginTop: 24,
-            }}
-          >
-            <SecurityCard
+          <div style={securityGrid}>
+            <ActionCard
               title="Senha"
-              text="Atualize sua senha regularmente."
+              text="Receba um link para alterar sua senha."
               button="Alterar senha"
+              onClick={sendPasswordReset}
             />
 
-            <SecurityCard
-              title="E-mail verificado"
-              text="Seu e-mail está protegido e validado."
-              button="Verificado"
+            <ActionCard
+              title="E-mail"
+              text="Verificação de e-mail será obrigatória no cadastro."
+              button="Ver status"
+              onClick={() => setMessage("Verificação de e-mail adicionada à lista do projeto.")}
             />
 
-            <SecurityCard
-              title="Sessões"
-              text="Gerencie dispositivos conectados."
-              button="Encerrar sessões"
+            <ActionCard
+              title="Sair"
+              text="Encerrar sua sessão neste dispositivo."
+              button="Sair da conta"
+              onClick={logout}
+              danger
             />
           </div>
         </div>
@@ -177,30 +155,30 @@ export default function SettingsPage() {
 function Input({
   label,
   value,
+  onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div>
-      <p
-        style={{
-          marginBottom: 10,
-          color: "rgba(255,255,255,.7)",
-          fontWeight: 700,
-        }}
-      >
+    <div style={{ marginBottom: 18 }}>
+      <p style={{ marginBottom: 10, color: "rgba(255,255,255,.7)", fontWeight: 700 }}>
         {label}
       </p>
 
       <input
-        defaultValue={value}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
         style={{
           width: "100%",
           padding: "18px",
           borderRadius: 18,
           border: "1px solid rgba(255,255,255,.08)",
-          background: "rgba(255,255,255,.05)",
+          background: disabled ? "rgba(255,255,255,.025)" : "rgba(255,255,255,.05)",
           color: "#fff",
           fontSize: 16,
           outline: "none",
@@ -210,125 +188,103 @@ function Input({
   );
 }
 
-function PlanItem({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        background: "rgba(255,255,255,.05)",
-        border: "1px solid rgba(255,255,255,.08)",
-        borderRadius: 18,
-        padding: 18,
-        color: "rgba(255,255,255,.85)",
-      }}
-    >
-      ✓ {text}
-    </div>
-  );
-}
-
-function SecurityCard({
+function ActionCard({
   title,
   text,
   button,
+  onClick,
+  danger = false,
 }: {
   title: string;
   text: string;
   button: string;
+  onClick: () => void;
+  danger?: boolean;
 }) {
   return (
-    <div
-      style={{
-        background: "rgba(255,255,255,.05)",
-        border: "1px solid rgba(255,255,255,.08)",
-        borderRadius: 24,
-        padding: 24,
-      }}
-    >
-      <h3
-        style={{
-          marginTop: 0,
-          fontSize: 24,
-        }}
-      >
-        {title}
-      </h3>
-
-      <p
-        style={{
-          color: "rgba(255,255,255,.7)",
-          lineHeight: 1.7,
-          minHeight: 60,
-        }}
-      >
-        {text}
-      </p>
-
-      <button
-        style={{
-          width: "100%",
-          border: "none",
-          borderRadius: 16,
-          padding: "16px",
-          fontWeight: 800,
-          fontSize: 15,
-          cursor: "pointer",
-          color: "#fff",
-          background:
-            "linear-gradient(90deg,#7c3aed,#ec4899)",
-        }}
-      >
+    <div style={miniCard}>
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+      <p style={muted}>{text}</p>
+      <button onClick={onClick} style={danger ? dangerButton : primaryButton}>
         {button}
       </button>
     </div>
   );
 }
 
-const cardStyle: React.CSSProperties = {
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background:
+    "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.22), transparent 28%), #050510",
+  color: "#fff",
+  padding: "40px 28px",
+};
+
+const eyebrow = { color: "#e879f9", fontWeight: 900, letterSpacing: ".08em" };
+const title = { margin: 0, fontSize: 52 };
+const subtitle = { color: "rgba(255,255,255,.7)", fontSize: 18, lineHeight: 1.7 };
+const grid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 };
+
+const card: React.CSSProperties = {
   background: "rgba(255,255,255,.05)",
   border: "1px solid rgba(255,255,255,.08)",
   borderRadius: 30,
   padding: 30,
-  boxShadow: "0 20px 80px rgba(0,0,0,.25)",
 };
 
-const titleStyle: React.CSSProperties = {
-  marginTop: 0,
-  fontSize: 34,
-};
-
-const primaryButton: React.CSSProperties = {
-  marginTop: 24,
-  width: "100%",
-  border: "none",
-  borderRadius: 18,
-  padding: "18px",
-  fontSize: 16,
-  fontWeight: 900,
-  color: "#fff",
-  cursor: "pointer",
-  background:
-    "linear-gradient(90deg,#7c3aed,#ec4899)",
-};
-
-const upgradeButton: React.CSSProperties = {
-  marginTop: 24,
-  width: "100%",
-  border: "none",
-  borderRadius: 18,
-  padding: "18px",
-  fontSize: 16,
-  fontWeight: 900,
-  color: "#fff",
-  cursor: "pointer",
-  background:
-    "linear-gradient(90deg,#f59e0b,#ef4444)",
-};
+const cardTitle = { marginTop: 0, fontSize: 34 };
 
 const planBox: React.CSSProperties = {
-  background:
-    "linear-gradient(135deg, rgba(124,58,237,.22), rgba(236,72,153,.18))",
-  border: "1px solid rgba(255,255,255,.08)",
+  background: "linear-gradient(135deg, rgba(124,58,237,.22), rgba(236,72,153,.18))",
   borderRadius: 24,
   padding: 24,
   marginBottom: 24,
+};
+
+const planLabel = { margin: 0, color: "#f0abfc", fontWeight: 900 };
+const muted = { color: "rgba(255,255,255,.7)", lineHeight: 1.7 };
+
+const primaryButton: React.CSSProperties = {
+  width: "100%",
+  border: "none",
+  borderRadius: 18,
+  padding: "18px",
+  fontWeight: 900,
+  color: "#fff",
+  cursor: "pointer",
+  background: "linear-gradient(90deg,#7c3aed,#ec4899)",
+};
+
+const upgradeButton: React.CSSProperties = {
+  ...primaryButton,
+  background: "linear-gradient(90deg,#f59e0b,#ef4444)",
+};
+
+const dangerButton: React.CSSProperties = {
+  ...primaryButton,
+  background: "rgba(239,68,68,.22)",
+  border: "1px solid rgba(239,68,68,.3)",
+};
+
+const securityGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: 18,
+};
+
+const miniCard: React.CSSProperties = {
+  background: "rgba(255,255,255,.05)",
+  border: "1px solid rgba(255,255,255,.08)",
+  borderRadius: 24,
+  padding: 24,
+};
+
+const alertBox: React.CSSProperties = {
+  background: "rgba(34,197,94,.14)",
+  color: "#4ade80",
+  border: "1px solid rgba(34,197,94,.22)",
+  padding: 18,
+  borderRadius: 18,
+  marginBottom: 24,
+  fontWeight: 800,
 };
