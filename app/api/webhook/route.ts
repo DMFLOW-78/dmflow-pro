@@ -8,9 +8,9 @@ const supabaseUrl =
 
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 
-const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN!;
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 function normalizeText(text: string) {
   return String(text || "")
@@ -59,7 +59,7 @@ async function findMatchingRule(accountId: string, text: string) {
     .eq("account_id", accountId);
 
   if (error) {
-    console.log("❌ ERRO SUPABASE AO BUSCAR REGRAS:", error);
+    console.log("❌ ERRO AO BUSCAR REGRAS:", error);
     return null;
   }
 
@@ -133,15 +133,20 @@ async function sendInstagramDM(recipientId: string, message: string) {
     process.env.DM_ACCESS_TOKEN?.trim() ||
     process.env.PAGE_ACCESS_TOKEN?.trim();
 
+  const pageId = process.env.FACEBOOK_PAGE_ID?.trim();
+
   if (!token) {
     console.error("❌ DM_ACCESS_TOKEN/PAGE_ACCESS_TOKEN ausente");
     return;
   }
 
+  if (!pageId) {
+    console.error("❌ FACEBOOK_PAGE_ID ausente");
+    return;
+  }
+
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
-      token
-    )}`,
+    `https://graph.facebook.com/v21.0/${pageId}/messages`,
     {
       method: "POST",
       headers: {
@@ -154,6 +159,7 @@ async function sendInstagramDM(recipientId: string, message: string) {
         message: {
           text: message,
         },
+        access_token: token,
       }),
     }
   );
@@ -277,9 +283,6 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("❌ ERRO WEBHOOK:", error);
 
-    return NextResponse.json(
-      { error: "Erro interno" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
