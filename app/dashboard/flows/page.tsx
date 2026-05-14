@@ -5,10 +5,14 @@ import { createSupabaseClient } from "@/lib/supabase/client";
 
 type Rule = {
   id: string;
+  account_id: string | null;
   trigger_text: string;
   response_text: string;
   active: boolean;
+  created_at?: string;
 };
+
+const INSTAGRAM_ACCOUNT_ID = "17841433249169574";
 
 export default function FlowsPage() {
   const supabase = useMemo(() => createSupabaseClient(), []);
@@ -17,16 +21,23 @@ export default function FlowsPage() {
   const [trigger, setTrigger] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editTrigger, setEditTrigger] = useState("");
-  const [editResponse, setEditResponse] = useState("");
+  const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
   async function loadRules() {
-    const { data } = await supabase
+    setErro("");
+
+    const { data, error } = await supabase
       .from("automation_rules")
       .select("*")
+      .eq("account_id", INSTAGRAM_ACCOUNT_ID)
       .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("ERRO AO CARREGAR AUTOMAÇÕES:", error);
+      setErro(error.message);
+      return;
+    }
 
     setRules(data || []);
   }
@@ -36,137 +47,98 @@ export default function FlowsPage() {
   }, []);
 
   async function createRule() {
-    if (!trigger.trim() || !response.trim()) return;
+    setErro("");
+    setSucesso("");
+
+    if (!trigger.trim()) {
+      setErro("Digite uma palavra-chave.");
+      return;
+    }
+
+    if (!response.trim()) {
+      setErro("Digite uma resposta automática.");
+      return;
+    }
 
     setLoading(true);
 
-    await supabase.from("automation_rules").insert({
-      trigger_text: trigger.trim(),
+    const { error } = await supabase.from("automation_rules").insert({
+      account_id: INSTAGRAM_ACCOUNT_ID,
+      trigger_text: trigger.trim().toLowerCase(),
       response_text: response.trim(),
       active: true,
-      account_id: "17841433249169574",
     });
+
+    if (error) {
+      console.log("ERRO AO CRIAR AUTOMAÇÃO:", error);
+      setErro(error.message);
+      setLoading(false);
+      return;
+    }
 
     setTrigger("");
     setResponse("");
-    await loadRules();
-    setLoading(false);
-  }
-
-  function startEdit(rule: Rule) {
-    setEditingId(rule.id);
-    setEditTrigger(rule.trigger_text);
-    setEditResponse(rule.response_text);
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditTrigger("");
-    setEditResponse("");
-  }
-
-  async function saveEdit(id: string) {
-    if (!editTrigger.trim() || !editResponse.trim()) return;
-
-    setLoading(true);
-
-    await supabase
-      .from("automation_rules")
-      .update({
-        trigger_text: editTrigger.trim(),
-        response_text: editResponse.trim(),
-      })
-      .eq("id", id);
-
-    cancelEdit();
-    await loadRules();
-    setLoading(false);
-  }
-
-  async function deleteRule(id: string) {
-    const confirmed = window.confirm(
-      "Tem certeza que deseja excluir esta automação?"
-    );
-
-    if (!confirmed) return;
-
-    setLoading(true);
-
-    await supabase.from("automation_rules").delete().eq("id", id);
+    setSucesso("Automação criada com sucesso.");
 
     await loadRules();
+
     setLoading(false);
   }
 
   async function toggleRule(id: string, active: boolean) {
-    await supabase
+    setErro("");
+
+    const { error } = await supabase
       .from("automation_rules")
       .update({ active: !active })
       .eq("id", id);
+
+    if (error) {
+      setErro(error.message);
+      return;
+    }
+
+    await loadRules();
+  }
+
+  async function deleteRule(id: string) {
+    const confirmed = window.confirm("Deseja excluir esta automação?");
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("automation_rules")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      setErro(error.message);
+      return;
+    }
 
     await loadRules();
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.25), transparent 28%), #050510",
-        color: "#fff",
-        padding: "30px",
-      }}
-    >
+    <main style={pageStyle}>
       <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
-        <div style={{ marginBottom: "34px" }}>
-          <p
-            style={{
-              color: "#e879f9",
-              margin: 0,
-              fontWeight: 800,
-              letterSpacing: ".08em",
-            }}
-          >
-            67FLOW AUTOMATIONS
-          </p>
+        <p style={eyebrow}>67FLOW AUTOMATIONS</p>
 
-          <h1 style={{ margin: "10px 0", fontSize: "42px" }}>
-            Fluxos automáticos
-          </h1>
+        <h1 style={title}>Fluxos automáticos</h1>
 
-          <p
-            style={{
-              color: "rgba(255,255,255,.68)",
-              maxWidth: "720px",
-              lineHeight: 1.7,
-              fontSize: "17px",
-            }}
-          >
-            Crie, edite e gerencie automações para responder comentários e
-            directs do Instagram usando palavras-chave.
-          </p>
-        </div>
+        <p style={subtitle}>
+          Crie automações para responder comentários e mensagens usando
+          palavras-chave.
+        </p>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.2fr .8fr",
-            gap: "22px",
-            marginBottom: "24px",
-          }}
-        >
-          <div style={panelStyle}>
-            <h2 style={{ marginTop: 0, fontSize: "28px" }}>
-              Nova automação
-            </h2>
+        {erro && <div style={errorBox}>Erro: {erro}</div>}
+        {sucesso && <div style={successBox}>{sucesso}</div>}
 
-            <p
-              style={{
-                color: "rgba(255,255,255,.62)",
-                marginBottom: "24px",
-                lineHeight: 1.6,
-              }}
-            >
+        <div style={grid}>
+          <div style={card}>
+            <h2 style={cardTitle}>Nova automação</h2>
+
+            <p style={muted}>
               Exemplo:
               <br />
               Palavra-chave: quero, preço, link
@@ -201,54 +173,38 @@ export default function FlowsPage() {
             </button>
           </div>
 
-          <div style={summaryStyle}>
-            <p
-              style={{
-                color: "#f0abfc",
-                fontWeight: 800,
-                marginTop: 0,
-              }}
-            >
-              RESUMO
-            </p>
+          <div style={summaryCard}>
+            <p style={eyebrow}>RESUMO</p>
 
             <h2 style={{ fontSize: "56px", margin: "0 0 10px" }}>
               {rules.length}
             </h2>
 
-            <p
-              style={{
-                color: "rgba(255,255,255,.75)",
-                fontSize: "18px",
-                lineHeight: 1.7,
-              }}
-            >
-              automações cadastradas no seu Instagram.
-            </p>
+            <p style={muted}>automações cadastradas no seu Instagram.</p>
 
-            <div style={{ marginTop: "30px", display: "grid", gap: "14px" }}>
-              <MiniCard
-                titulo="Comentários automáticos"
-                texto="Responder comentários por palavra-chave."
-              />
-              <MiniCard
-                titulo="DM automática"
-                texto="Direct pronto no código. Depende da liberação Meta."
-              />
-              <MiniCard
-                titulo="Captura de leads"
-                texto="Enviar links, checkout e direcionar clientes."
-              />
-            </div>
+            <MiniCard
+              title="Comentários automáticos"
+              text="Responder comentários por palavra-chave."
+            />
+
+            <MiniCard
+              title="DM automática"
+              text="Direct pronto no código. Depende da liberação Meta."
+            />
+
+            <MiniCard
+              title="Captura de leads"
+              text="Enviar links, checkout e direcionar clientes."
+            />
           </div>
         </div>
 
-        <div style={{ display: "grid", gap: "18px" }}>
-          {rules.map((rule) => {
-            const isEditing = editingId === rule.id;
-
-            return (
-              <div key={rule.id} style={ruleCardStyle}>
+        <div style={{ display: "grid", gap: "18px", marginTop: "24px" }}>
+          {rules.length === 0 ? (
+            <div style={emptyBox}>Nenhuma automação criada ainda.</div>
+          ) : (
+            rules.map((rule) => (
+              <div key={rule.id} style={ruleCard}>
                 <div
                   style={{
                     display: "flex",
@@ -258,84 +214,16 @@ export default function FlowsPage() {
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <p
-                      style={{
-                        color: "#f0abfc",
-                        marginTop: 0,
-                        fontWeight: 800,
-                        letterSpacing: ".04em",
-                      }}
-                    >
-                      PALAVRAS-CHAVE
-                    </p>
+                    <p style={eyebrow}>PALAVRA-CHAVE</p>
 
-                    {isEditing ? (
-                      <>
-                        <input
-                          value={editTrigger}
-                          onChange={(e) => setEditTrigger(e.target.value)}
-                          style={inputStyle}
-                        />
+                    <h2 style={{ marginTop: "8px", fontSize: "30px" }}>
+                      {rule.trigger_text}
+                    </h2>
 
-                        <textarea
-                          value={editResponse}
-                          onChange={(e) => setEditResponse(e.target.value)}
-                          style={{
-                            ...inputStyle,
-                            minHeight: "120px",
-                            resize: "vertical",
-                          }}
-                        />
-
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "10px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <button
-                            onClick={() => saveEdit(rule.id)}
-                            style={primarySmallButton}
-                          >
-                            Salvar
-                          </button>
-
-                          <button onClick={cancelEdit} style={secondaryButton}>
-                            Cancelar
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <h2 style={{ marginTop: "6px", fontSize: "30px" }}>
-                          {rule.trigger_text}
-                        </h2>
-
-                        <div
-                          style={{
-                            marginTop: "18px",
-                            padding: "18px",
-                            borderRadius: "18px",
-                            background: "rgba(255,255,255,.04)",
-                            color: "rgba(255,255,255,.82)",
-                            lineHeight: 1.7,
-                          }}
-                        >
-                          {rule.response_text}
-                        </div>
-                      </>
-                    )}
+                    <div style={messageBox}>{rule.response_text}</div>
                   </div>
 
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: "10px",
-                      height: "fit-content",
-                      minWidth: "130px",
-                    }}
-                  >
+                  <div style={{ display: "grid", gap: "10px", minWidth: 140 }}>
                     <button
                       onClick={() => toggleRule(rule.id, rule.active)}
                       style={{
@@ -349,15 +237,6 @@ export default function FlowsPage() {
                       {rule.active ? "ATIVO" : "INATIVO"}
                     </button>
 
-                    {!isEditing && (
-                      <button
-                        onClick={() => startEdit(rule)}
-                        style={secondaryButton}
-                      >
-                        Editar
-                      </button>
-                    )}
-
                     <button
                       onClick={() => deleteRule(rule.id)}
                       style={dangerButton}
@@ -367,53 +246,65 @@ export default function FlowsPage() {
                   </div>
                 </div>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       </div>
     </main>
   );
 }
 
-function MiniCard({
-  titulo,
-  texto,
-}: {
-  titulo: string;
-  texto: string;
-}) {
+function MiniCard({ title, text }: { title: string; text: string }) {
   return (
-    <div
-      style={{
-        background: "rgba(255,255,255,.05)",
-        border: "1px solid rgba(255,255,255,.08)",
-        borderRadius: "20px",
-        padding: "18px",
-      }}
-    >
-      <strong>{titulo}</strong>
-      <p
-        style={{
-          marginBottom: 0,
-          color: "rgba(255,255,255,.7)",
-          lineHeight: 1.6,
-        }}
-      >
-        {texto}
-      </p>
+    <div style={miniCard}>
+      <strong>{title}</strong>
+      <p style={muted}>{text}</p>
     </div>
   );
 }
 
-const panelStyle: React.CSSProperties = {
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background:
+    "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.25), transparent 28%), #050510",
+  color: "#fff",
+  padding: "40px 28px",
+};
+
+const eyebrow: React.CSSProperties = {
+  color: "#e879f9",
+  margin: 0,
+  fontWeight: 900,
+  letterSpacing: ".08em",
+};
+
+const title: React.CSSProperties = {
+  margin: "10px 0",
+  fontSize: "42px",
+};
+
+const subtitle: React.CSSProperties = {
+  color: "rgba(255,255,255,.68)",
+  maxWidth: "760px",
+  lineHeight: 1.7,
+  fontSize: "17px",
+  marginBottom: "30px",
+};
+
+const grid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1.2fr .8fr",
+  gap: "22px",
+};
+
+const card: React.CSSProperties = {
   background: "rgba(255,255,255,.05)",
   border: "1px solid rgba(255,255,255,.08)",
   borderRadius: "30px",
   padding: "30px",
-  boxShadow: "0 25px 80px rgba(0,0,0,.28)",
 };
 
-const summaryStyle: React.CSSProperties = {
+const summaryCard: React.CSSProperties = {
   background:
     "linear-gradient(135deg, rgba(124,58,237,.24), rgba(236,72,153,.18))",
   border: "1px solid rgba(255,255,255,.08)",
@@ -421,12 +312,9 @@ const summaryStyle: React.CSSProperties = {
   padding: "30px",
 };
 
-const ruleCardStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,.05)",
-  border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: "26px",
-  padding: "26px",
-  boxShadow: "0 20px 60px rgba(0,0,0,.22)",
+const cardTitle: React.CSSProperties = {
+  marginTop: 0,
+  fontSize: "28px",
 };
 
 const inputStyle: React.CSSProperties = {
@@ -447,25 +335,53 @@ const primaryButton: React.CSSProperties = {
   color: "#fff",
   padding: "16px 24px",
   borderRadius: "16px",
-  fontWeight: 800,
+  fontWeight: 900,
   fontSize: "16px",
   cursor: "pointer",
-  boxShadow: "0 10px 40px rgba(124,58,237,.45)",
 };
 
-const primarySmallButton: React.CSSProperties = {
-  ...primaryButton,
-  padding: "12px 18px",
-  fontSize: "14px",
+const muted: React.CSSProperties = {
+  color: "rgba(255,255,255,.7)",
+  lineHeight: 1.7,
 };
 
-const secondaryButton: React.CSSProperties = {
-  background: "rgba(255,255,255,.07)",
-  border: "1px solid rgba(255,255,255,.12)",
-  color: "#fff",
+const miniCard: React.CSSProperties = {
+  background: "rgba(255,255,255,.05)",
+  border: "1px solid rgba(255,255,255,.08)",
+  borderRadius: "20px",
+  padding: "18px",
+  marginTop: "14px",
+};
+
+const emptyBox: React.CSSProperties = {
+  background: "rgba(255,255,255,.05)",
+  border: "1px solid rgba(255,255,255,.08)",
+  borderRadius: "24px",
+  padding: "24px",
+  color: "rgba(255,255,255,.7)",
+};
+
+const ruleCard: React.CSSProperties = {
+  background: "rgba(255,255,255,.05)",
+  border: "1px solid rgba(255,255,255,.08)",
+  borderRadius: "26px",
+  padding: "26px",
+};
+
+const messageBox: React.CSSProperties = {
+  marginTop: "18px",
+  padding: "18px",
+  borderRadius: "18px",
+  background: "rgba(255,255,255,.04)",
+  color: "rgba(255,255,255,.82)",
+  lineHeight: 1.7,
+};
+
+const statusButton: React.CSSProperties = {
+  border: "none",
   borderRadius: "14px",
   padding: "12px 16px",
-  fontWeight: 800,
+  fontWeight: 900,
   cursor: "pointer",
 };
 
@@ -475,14 +391,26 @@ const dangerButton: React.CSSProperties = {
   color: "#ff7d7d",
   borderRadius: "14px",
   padding: "12px 16px",
-  fontWeight: 800,
+  fontWeight: 900,
   cursor: "pointer",
 };
 
-const statusButton: React.CSSProperties = {
-  border: "none",
-  borderRadius: "14px",
-  padding: "12px 16px",
-  fontWeight: 900,
-  cursor: "pointer",
+const errorBox: React.CSSProperties = {
+  background: "rgba(239,68,68,.14)",
+  color: "#ff7d7d",
+  border: "1px solid rgba(239,68,68,.22)",
+  padding: "18px",
+  borderRadius: "18px",
+  marginBottom: "20px",
+  fontWeight: 800,
+};
+
+const successBox: React.CSSProperties = {
+  background: "rgba(34,197,94,.14)",
+  color: "#4ade80",
+  border: "1px solid rgba(34,197,94,.22)",
+  padding: "18px",
+  borderRadius: "18px",
+  marginBottom: "20px",
+  fontWeight: 800,
 };
