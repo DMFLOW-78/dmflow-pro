@@ -146,23 +146,23 @@ async function sendInstagramDM(recipientId: string, message: string) {
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/${process.env.INSTAGRAM_ACCOUNT_ID}/messages`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  `https://graph.facebook.com/v21.0/${pageId}/messages`,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      recipient: {
+        id: recipientId,
       },
-      body: JSON.stringify({
-        recipient: {
-          id: recipientId,
-        },
-        message: {
-          text: message,
-        },
-        access_token: token,
-      }),
-    }
-  );
+      message: {
+        text: message,
+      },
+      access_token: token,
+    }),
+  }
+);
 
   const data = await response.json();
 
