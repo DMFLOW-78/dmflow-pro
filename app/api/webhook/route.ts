@@ -146,7 +146,7 @@ async function sendInstagramDM(recipientId: string, message: string) {
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/${pageId}/messages`,
+    `https://graph.facebook.com/v21.0/${process.env.INSTAGRAM_ACCOUNT_ID}/messages`,
     {
       method: "POST",
       headers: {
