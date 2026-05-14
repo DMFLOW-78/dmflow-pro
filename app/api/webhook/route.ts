@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.URL_SUPABASE;
 
@@ -9,6 +11,14 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN!;
+
+function normalizeText(text: string) {
+  return String(text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 async function saveLead({
   username,
@@ -39,6 +49,55 @@ async function saveLead({
   console.log("✅ LEAD SALVO:", source, userId || username);
 }
 
+async function findMatchingRule(accountId: string, text: string) {
+  const cleanText = normalizeText(text);
+
+  const { data: rules, error } = await supabase
+    .from("automation_rules")
+    .select("*")
+    .eq("active", true)
+    .eq("account_id", accountId);
+
+  if (error) {
+    console.log("❌ ERRO SUPABASE AO BUSCAR REGRAS:", error);
+    return null;
+  }
+
+  console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
+
+  for (const rule of rules || []) {
+    const keywords = String(rule.trigger_text || "")
+      .split(",")
+      .map((keyword) => normalizeText(keyword))
+      .filter(Boolean);
+
+    console.log("🔎 TESTANDO PALAVRAS:", keywords);
+
+    const matchedKeyword = keywords.find((keyword) =>
+      cleanText.includes(keyword)
+    );
+
+    if (!matchedKeyword) continue;
+
+    const responseText = String(rule.response_text || "").trim();
+
+    if (!responseText) {
+      console.log("⚠️ REGRA SEM RESPOSTA:", rule.id);
+      return null;
+    }
+
+    console.log("⚡ AUTOMAÇÃO ENCONTRADA:", matchedKeyword);
+
+    return {
+      responseText,
+      matchedKeyword,
+    };
+  }
+
+  console.log("🚫 NENHUMA AUTOMAÇÃO BATEU COM:", cleanText);
+  return null;
+}
+
 async function sendCommentReply(commentId: string, message: string) {
   const token = process.env.PAGE_ACCESS_TOKEN?.trim();
 
@@ -51,7 +110,9 @@ async function sendCommentReply(commentId: string, message: string) {
     `https://graph.facebook.com/v21.0/${commentId}/replies`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         message,
         access_token: token,
@@ -61,34 +122,31 @@ async function sendCommentReply(commentId: string, message: string) {
 
   const data = await response.json();
 
-  console.log("💬 RESPOSTA COMENTÁRIO:");
+  console.log("💬 RESPOSTA DO COMENTÁRIO:");
   console.log(JSON.stringify(data, null, 2));
 
   return data;
 }
 
-async function sendInstagramDM(
-  instagramAccountId: string,
-  recipientId: string,
-  message: string
-) {
-  const token = process.env.DM_ACCESS_TOKEN?.trim();
-
-  console.log("🔐 DM TOKEN PREFIX:", token?.slice(0, 3));
-  console.log("🔐 DM TOKEN LENGTH:", token?.length);
+async function sendInstagramDM(recipientId: string, message: string) {
+  const token =
+    process.env.DM_ACCESS_TOKEN?.trim() ||
+    process.env.PAGE_ACCESS_TOKEN?.trim();
 
   if (!token) {
-    console.error("❌ DM_ACCESS_TOKEN ausente");
+    console.error("❌ DM_ACCESS_TOKEN/PAGE_ACCESS_TOKEN ausente");
     return;
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v21.0/${instagramAccountId}/messages?access_token=${encodeURIComponent(
+    `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
       token
     )}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         recipient: {
           id: recipientId,
@@ -102,75 +160,16 @@ async function sendInstagramDM(
 
   const data = await response.json();
 
-  console.log("📨 RESPOSTA DM:");
+  console.log("📨 RESPOSTA DA DM:");
   console.log(JSON.stringify(data, null, 2));
 
   return data;
 }
 
-function getKeywords(rule: any): string[] {
-  return String(rule.trigger_text || "")
-    .split(",")
-    .map((k) => k.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-function getResponseText(rule: any): string {
-  return String(rule.response_text || "").trim();
-}
-
-async function findMatchingRule(accountId: string, text: string) {
-  const { data: rules, error } = await supabase
-    .from("automation_rules")
-    .select("*")
-    .eq("active", true)
-    .eq("account_id", accountId);
-
-  if (error) {
-    console.log("❌ ERRO SUPABASE:", error);
-    return null;
-  }
-
-  console.log("📦 REGRAS ENCONTRADAS:", rules?.length || 0);
-
-  for (const rule of rules || []) {
-    const keywords = getKeywords(rule);
-
-    console.log("🔎 TESTANDO REGRA:", keywords);
-
-    if (keywords.length === 0) continue;
-
-    const matchedKeyword = keywords.find((keyword) =>
-      text.includes(keyword)
-    );
-
-    if (!matchedKeyword) continue;
-
-    console.log("⚡ MATCH ENCONTRADO:", matchedKeyword);
-
-    const responseText = getResponseText(rule);
-
-    if (!responseText) {
-      console.log("⚠️ Regra sem resposta.");
-      return null;
-    }
-
-    return {
-      responseText,
-      matchedKeyword,
-    };
-  }
-
-  return null;
-}
-
 async function handleComment(entry: any, change: any) {
   const instagramAccountId = entry.id;
 
-  const commentText = String(change.value?.text || "")
-    .toLowerCase()
-    .trim();
-
+  const commentText = String(change.value?.text || "").trim();
   const commentId = change.value?.id;
   const userId = change.value?.from?.id;
   const username = change.value?.from?.username;
@@ -198,17 +197,13 @@ async function handleComment(entry: any, change: any) {
   if (!match) return;
 
   await sendCommentReply(commentId, match.responseText);
-
-  console.log("📩 Private Reply desativado temporariamente.");
 }
 
 async function handleDM(entry: any, messaging: any) {
   const instagramAccountId = entry.id;
 
   const senderId = messaging.sender?.id;
-  const messageText = String(messaging.message?.text || "")
-    .toLowerCase()
-    .trim();
+  const messageText = String(messaging.message?.text || "").trim();
 
   console.log("📥 DM RECEBIDA:", messageText);
   console.log("👤 SENDER ID:", senderId);
@@ -235,11 +230,7 @@ async function handleDM(entry: any, messaging: any) {
 
   if (!match) return;
 
-  await sendInstagramDM(
-    instagramAccountId,
-    senderId,
-    match.responseText
-  );
+  await sendInstagramDM(senderId, match.responseText);
 }
 
 export async function GET(req: Request) {
