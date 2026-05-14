@@ -8,6 +8,7 @@ type Rule = {
   account_id: string | null;
   trigger_text: string;
   response_text: string;
+  channel: string;
   active: boolean;
   created_at?: string;
 };
@@ -66,6 +67,7 @@ export default function FlowsPage() {
       account_id: INSTAGRAM_ACCOUNT_ID,
       trigger_text: trigger.trim().toLowerCase(),
       response_text: response.trim(),
+      channel: "comments",
       active: true,
     });
 
@@ -132,6 +134,7 @@ export default function FlowsPage() {
         </p>
 
         {erro && <div style={errorBox}>Erro: {erro}</div>}
+
         {sucesso && <div style={successBox}>{sucesso}</div>}
 
         <div style={grid}>
@@ -254,10 +257,17 @@ export default function FlowsPage() {
   );
 }
 
-function MiniCard({ title, text }: { title: string; text: string }) {
+function MiniCard({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
   return (
     <div style={miniCard}>
-      <strong>{title}</strong>
+      <h3 style={{ marginTop: 0 }}>{title}</h3>
+
       <p style={muted}>{text}</p>
     </div>
   );
@@ -265,56 +275,53 @@ function MiniCard({ title, text }: { title: string; text: string }) {
 
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
-  background:
-    "radial-gradient(circle at top left, rgba(124,58,237,.35), transparent 30%), radial-gradient(circle at top right, rgba(236,72,153,.25), transparent 28%), #050510",
+  padding: "40px",
   color: "#fff",
-  padding: "40px 28px",
+  background:
+    "linear-gradient(135deg, #0b0220 0%, #14052c 45%, #2a093d 100%)",
 };
 
 const eyebrow: React.CSSProperties = {
-  color: "#e879f9",
-  margin: 0,
+  color: "#f472b6",
   fontWeight: 900,
-  letterSpacing: ".08em",
+  letterSpacing: "1px",
+  fontSize: "14px",
 };
 
 const title: React.CSSProperties = {
-  margin: "10px 0",
-  fontSize: "42px",
+  fontSize: "58px",
+  marginTop: "10px",
+  marginBottom: "10px",
 };
 
 const subtitle: React.CSSProperties = {
-  color: "rgba(255,255,255,.68)",
-  maxWidth: "760px",
-  lineHeight: 1.7,
-  fontSize: "17px",
-  marginBottom: "30px",
+  color: "rgba(255,255,255,.7)",
+  marginBottom: "40px",
+  fontSize: "18px",
 };
 
 const grid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1.2fr .8fr",
-  gap: "22px",
+  gridTemplateColumns: "1.3fr .9fr",
+  gap: "24px",
 };
 
 const card: React.CSSProperties = {
-  background: "rgba(255,255,255,.05)",
+  background: "rgba(255,255,255,.04)",
   border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: "30px",
+  borderRadius: "32px",
   padding: "30px",
+  backdropFilter: "blur(12px)",
 };
 
 const summaryCard: React.CSSProperties = {
-  background:
-    "linear-gradient(135deg, rgba(124,58,237,.24), rgba(236,72,153,.18))",
-  border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: "30px",
-  padding: "30px",
+  ...card,
+  background: "rgba(168,85,247,.14)",
 };
 
 const cardTitle: React.CSSProperties = {
   marginTop: 0,
-  fontSize: "28px",
+  fontSize: "32px",
 };
 
 const inputStyle: React.CSSProperties = {
